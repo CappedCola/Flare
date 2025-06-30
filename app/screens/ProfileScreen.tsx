@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Dimensions, View, StatusBar } from 'react-native';
-import { Text, Avatar, Button, Icon } from '@ui-kitten/components';
+import { Text, Avatar, Button, Icon, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
@@ -18,13 +18,20 @@ const PhotoGridItem = ({ index }: { index: number }) => (
 );
 
 export const ProfileScreen = () => {
+  const theme = useTheme();
   const mockPhotos = Array.from({ length: 12 }, (_, i) => i);
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <StatusBar barStyle="light-content" backgroundColor={theme['background-basic-color-1']} />
+      <SafeAreaView style={[
+        styles.container,
+        { backgroundColor: theme['background-basic-color-1'] }
+      ]}>
+        <View style={[
+          styles.header,
+          { borderBottomColor: theme['border-basic-color-2'] }
+        ]}>
           <Text category='h6' style={styles.username}>
             @johndoe
           </Text>
@@ -37,13 +44,20 @@ export const ProfileScreen = () => {
           />
         </View>
 
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.content}>
             <View style={styles.profileSection}>
               <Avatar
                 size='giant'
                 source={{ uri: 'https://via.placeholder.com/100' }}
-                style={styles.avatar}
+                style={[
+                  styles.avatar,
+                  { borderColor: theme['color-primary-500'] }
+                ]}
               />
               
               <View style={styles.userInfo}>
@@ -57,7 +71,10 @@ export const ProfileScreen = () => {
 
               <View style={styles.statsContainer}>
                 <View style={styles.statItem}>
-                  <Text category='h6' style={styles.statNumber}>
+                  <Text category='h6' style={[
+                    styles.statNumber,
+                    { color: theme['color-primary-500'] }
+                  ]}>
                     42
                   </Text>
                   <Text category='c2' style={styles.statLabel}>
@@ -65,7 +82,10 @@ export const ProfileScreen = () => {
                   </Text>
                 </View>
                 <View style={styles.statItem}>
-                  <Text category='h6' style={styles.statNumber}>
+                  <Text category='h6' style={[
+                    styles.statNumber,
+                    { color: theme['color-primary-500'] }
+                  ]}>
                     156
                   </Text>
                   <Text category='c2' style={styles.statLabel}>
@@ -73,7 +93,10 @@ export const ProfileScreen = () => {
                   </Text>
                 </View>
                 <View style={styles.statItem}>
-                  <Text category='h6' style={styles.statNumber}>
+                  <Text category='h6' style={[
+                    styles.statNumber,
+                    { color: theme['color-primary-500'] }
+                  ]}>
                     1.2k
                   </Text>
                   <Text category='c2' style={styles.statLabel}>
@@ -84,7 +107,10 @@ export const ProfileScreen = () => {
 
               <Button
                 size='small'
-                style={styles.editButton}
+                style={[
+                  styles.editButton,
+                  { borderColor: theme['color-primary-500'] }
+                ]}
                 appearance='outline'
               >
                 Edit Profile
@@ -123,7 +149,6 @@ export const ProfileScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   header: {
     flexDirection: 'row',
@@ -133,7 +158,6 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
     backgroundColor: 'transparent',
   },
   username: {
@@ -148,6 +172,9 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 120,
+  },
   content: {
     paddingHorizontal: 20,
   },
@@ -158,7 +185,6 @@ const styles = StyleSheet.create({
   avatar: {
     marginBottom: 20,
     borderWidth: 3,
-    borderColor: '#5D5FEF',
   },
   userInfo: {
     alignItems: 'center',
@@ -186,7 +212,6 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontWeight: 'bold',
-    color: '#5D5FEF',
     fontSize: 24,
   },
   statLabel: {
@@ -195,7 +220,6 @@ const styles = StyleSheet.create({
   },
   editButton: {
     paddingHorizontal: 40,
-    borderColor: '#5D5FEF',
   },
   photosSection: {
     paddingTop: 32,
@@ -217,13 +241,13 @@ const styles = StyleSheet.create({
   photoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 4,
     justifyContent: 'space-between',
   },
   photoItem: {
     backgroundColor: '#2A2A2A',
-    borderRadius: 12,
-    marginBottom: 8,
+    borderRadius: 8,
+    marginBottom: 4,
     alignItems: 'center',
     justifyContent: 'center',
     width: 100,

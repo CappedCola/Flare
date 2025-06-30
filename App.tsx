@@ -6,7 +6,7 @@ import { useFonts, Inter_400Regular } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { RootNavigator } from './app/navigation/RootNavigator';
 import * as eva from '@eva-design/eva';
-import { darkTheme } from './app/theme/theme';
+import { oceanBreezeTheme } from './app/theme/theme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,7 +28,7 @@ export default function App() {
   return (
     <>
       <IconRegistry icons={EvaIconsPack} />
-      <ApplicationProvider {...eva} theme={darkTheme}>
+      <ApplicationProvider {...eva} theme={oceanBreezeTheme}>
         <RootNavigator />
         <StatusBar style="auto" />
       </ApplicationProvider>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, StatusBar } from 'react-native';
-import { Text, Button, Icon } from '@ui-kitten/components';
+import { Text, Button, Icon, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const FlashIcon = (props: any) => <Icon {...props} name='flash-outline' />;
@@ -10,13 +10,15 @@ const CloseIcon = (props: any) => <Icon {...props} name='close-outline' />;
 const CameraIcon = (props: any) => <Icon {...props} name='camera-outline' />;
 
 export const CameraScreen = () => {
-  const [timeRemaining, setTimeRemaining] = useState('01:29');
+  const theme = useTheme();
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <SafeAreaView style={styles.container}>
-        {/* Header */}
+      <StatusBar barStyle="light-content" backgroundColor={theme['background-basic-color-1']} />
+      <SafeAreaView style={[
+        styles.container,
+        { backgroundColor: theme['background-basic-color-1'] }
+      ]}>
         <View style={styles.header}>
           <Button
             appearance='ghost'
@@ -27,58 +29,67 @@ export const CameraScreen = () => {
           <View style={styles.headerSpacer} />
         </View>
 
-        {/* Main Camera Area */}
         <View style={styles.cameraSection}>
           <View style={styles.cameraContainer}>
-            <View style={styles.cameraView}>
+            <View style={[
+              styles.cameraPreview,
+              { backgroundColor: theme['background-basic-color-2'] }
+            ]}>
               <Text style={styles.cameraPlaceholder}>Camera View</Text>
               <Text style={styles.cameraSubtext}>Front & Back Camera</Text>
             </View>
             
-            <View style={styles.sideControls}>
+            <View style={styles.toolRail}>
               <Button
                 appearance='ghost'
                 accessoryLeft={FlashIcon}
-                size='small'
-                style={styles.sideButton}
+                style={[
+                  styles.toolButton,
+                  { 
+                    borderColor: theme['color-basic-800'],
+                    backgroundColor: 'transparent'
+                  }
+                ]}
               />
               <Button
                 appearance='ghost'
                 accessoryLeft={FlipIcon}
-                size='small'
-                style={styles.sideButton}
+                style={[
+                  styles.toolButton,
+                  { 
+                    borderColor: theme['color-basic-800'],
+                    backgroundColor: 'transparent'
+                  }
+                ]}
               />
               <Button
                 appearance='ghost'
                 accessoryLeft={SettingsIcon}
-                size='small'
-                style={styles.sideButton}
+                style={[
+                  styles.toolButton,
+                  { 
+                    borderColor: theme['color-basic-800'],
+                    backgroundColor: 'transparent'
+                  }
+                ]}
               />
             </View>
           </View>
         </View>
 
-        {/* Bottom Controls */}
         <View style={styles.bottomSection}>
+          <Text style={styles.friendsText}>👥 My friends only    📍 W 47th St...</Text>
+          
           <View style={styles.captureContainer}>
             <Button
               status='primary'
               accessoryLeft={CameraIcon}
-              style={styles.captureButton}
+              style={[
+                styles.captureButton,
+                { backgroundColor: theme['color-primary-500'] }
+              ]}
               onPress={() => console.log('Capture pressed')}
             />
-          </View>
-
-          <View style={styles.sendContainer}>
-            <Text style={styles.friendsText}>👥 My friends only    📍 W 47th St...</Text>
-            <Button
-              status='primary'
-              appearance='outline'
-              style={styles.sendButton}
-              onPress={() => console.log('Send pressed')}
-            >
-              SEND ▶
-            </Button>
           </View>
         </View>
       </SafeAreaView>
@@ -89,7 +100,6 @@ export const CameraScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   header: {
     flexDirection: 'row',
@@ -109,7 +119,7 @@ const styles = StyleSheet.create({
   },
   cameraSection: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 8,
   },
   cameraContainer: {
@@ -117,10 +127,10 @@ const styles = StyleSheet.create({
     height: 420,
     marginBottom: 32,
   },
-  cameraView: {
+  cameraPreview: {
     flex: 1,
-    backgroundColor: '#2A2A2A',
-    borderRadius: 16,
+    aspectRatio: 4/5,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -146,64 +156,44 @@ const styles = StyleSheet.create({
     color: '#AAAAAA',
     letterSpacing: 0.3,
   },
-  sideControls: {
-    justifyContent: 'space-around',
+  toolRail: {
+    justifyContent: 'space-evenly',
     alignItems: 'center',
-    width: 72,
-    paddingVertical: 24,
+    width: 80,
   },
-  sideButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  toolButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    marginVertical: 8,
   },
   bottomSection: {
     paddingHorizontal: 20,
     paddingBottom: 24,
-  },
-  captureContainer: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 12,
-  },
-  sendContainer: {
     alignItems: 'center',
   },
   friendsText: {
     color: '#CCCCCC',
     fontSize: 15,
     fontWeight: '500',
-    marginBottom: 16,
+    marginBottom: 24,
     textAlign: 'center',
     letterSpacing: 0.3,
   },
-  sendButton: {
-    width: '80%',
-    borderRadius: 28,
-    paddingVertical: 16,
-    shadowColor: '#5D5FEF',
+  captureContainer: {
+    alignItems: 'center',
+  },
+  captureButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 3,
+      height: 8,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 16,
   },
 });

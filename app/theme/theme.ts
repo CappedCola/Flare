@@ -6,7 +6,7 @@ export const lightTheme = {
   'color-primary-200': '#D1D1FF',
   'color-primary-300': '#ABABFF',
   'color-primary-400': '#8B8BFF',
-  'color-primary-500': '#5D5FEF',
+  'color-primary-500': '#6A6DFF',
   'color-primary-600': '#4344CD',
   'color-primary-700': '#2D2FAB',
   'color-primary-800': '#1A1C89',
@@ -61,7 +61,7 @@ export const darkTheme = {
   'color-primary-200': '#1A1C89',
   'color-primary-300': '#2D2FAB',
   'color-primary-400': '#4344CD',
-  'color-primary-500': '#5D5FEF',
+  'color-primary-500': '#6A6DFF',
   'color-primary-600': '#8B8BFF',
   'color-primary-700': '#ABABFF',
   'color-primary-800': '#D1D1FF',
@@ -97,6 +97,9 @@ export const darkTheme = {
   'color-danger-800': '#FFC3C3',
   'color-danger-900': '#FFE8E8',
   
+  'background-basic-color-1': '#0A0A0F',
+  'background-basic-color-2': '#15161D',
+  'border-basic-color-2': '#252630',
   'color-basic-100': '#101426',
   'color-basic-200': '#151A30',
   'color-basic-300': '#192038',
@@ -108,4 +111,38 @@ export const darkTheme = {
   'color-basic-900': '#EDF1F7',
   'color-basic-1000': '#F7F9FC',
   'color-basic-1100': '#FFFFFF',
+};
+
+export const oceanBreezeTheme = {
+  ...light,
+  // 1. PRIMARY (blue) – 5 shades
+'color-primary-100': '#D0EFFF',  // lightest tint
+  'color-primary-300': '#5CC1FF',  // light tint
+  'color-primary-500': '#00A3FF',  // main brand color
+  'color-primary-700': '#007ACC',  // dark shade
+  'color-primary-900': '#00568A',  // darkest shade
+
+  // 2. BACKGROUNDS – 3 colors
+  'background-basic-color-1': '#121212', // main app bg (almost black)
+  'background-basic-color-2': '#1E1E1E', // cards & surfaces
+  'background-basic-color-3': '#2A2A2A', // modals & overlays
+
+  // 3. TEXT & ICONS – 4 colors
+  'color-basic-600': '#757575', // inactive/secondary text
+  'color-basic-800': '#E0E0E0', // active text/icons
+  'color-basic-900': '#FAFAFA', // primary text
+  'text-basic-color': '#FFFFFF',// main body text
+
+  // 4. BORDERS & DIVIDERS – 2 colors
+  'border-basic-color-2': '#333333', // main borders
+  'border-basic-color-3': '#444444', // subtle dividers
+
+  // 5. ACCENTS (semantic feedback)
+  'color-success-500': '#4CAF50', // success
+  'color-warning-500': '#FFB300', // warning
+  'color-danger-500':  '#E53935', // error
+
+  // 6. EXTRA HIGHLIGHTS
+  'color-info-500':   '#0096A8', // secondary accent (teal)
+  'color-basic-100':  '#181818', // ultra-light neutral for padding
 };
