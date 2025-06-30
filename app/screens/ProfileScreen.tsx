@@ -2,6 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Dimensions, View, StatusBar } from 'react-native';
 import { Text, Avatar, Button, Icon, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { pillNavHeight } from '../constants/navigation';
 
 const { width } = Dimensions.get('window');
 const photoSize = (width - 48) / 3;
@@ -46,7 +47,10 @@ export const ProfileScreen = () => {
 
         <ScrollView 
           style={styles.scrollView} 
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: pillNavHeight + 16 }
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>

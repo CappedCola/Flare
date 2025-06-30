@@ -2,7 +2,7 @@ import React from 'react';
 import { FlatList, StyleSheet, View, StatusBar } from 'react-native';
 import { Text, Card, Avatar, Button, Icon, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { navBarHeight } from '../constants/navigation';
+import { pillNavHeight } from '../constants/navigation';
 
 const HeartIcon = (props: any) => <Icon {...props} name='heart-outline' />;
 const MessageIcon = (props: any) => <Icon {...props} name='message-circle-outline' />;
@@ -108,7 +108,10 @@ export const FeedScreen = () => {
           />
         )}
         keyExtractor={(item, index) => index.toString()}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: pillNavHeight + 16 }
+        ]}
         showsVerticalScrollIndicator={false}
       />
       </SafeAreaView>
@@ -142,7 +145,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: navBarHeight + 20,
+    paddingBottom: 20,
   },
   card: {
     marginBottom: 24,

@@ -6,7 +6,7 @@ export const lightTheme = {
   'color-primary-200': '#D1D1FF',
   'color-primary-300': '#ABABFF',
   'color-primary-400': '#8B8BFF',
-  'color-primary-500': '#6A6DFF',
+  'color-primary-500': '#4FD3FF',
   'color-primary-600': '#4344CD',
   'color-primary-700': '#2D2FAB',
   'color-primary-800': '#1A1C89',
@@ -61,7 +61,7 @@ export const darkTheme = {
   'color-primary-200': '#1A1C89',
   'color-primary-300': '#2D2FAB',
   'color-primary-400': '#4344CD',
-  'color-primary-500': '#6A6DFF',
+  'color-primary-500': '#4FD3FF',
   'color-primary-600': '#8B8BFF',
   'color-primary-700': '#ABABFF',
   'color-primary-800': '#D1D1FF',
@@ -97,9 +97,10 @@ export const darkTheme = {
   'color-danger-800': '#FFC3C3',
   'color-danger-900': '#FFE8E8',
   
-  'background-basic-color-1': '#0A0A0F',
-  'background-basic-color-2': '#15161D',
-  'border-basic-color-2': '#252630',
+  'background-basic-color-1': '#0E0E12',
+  'background-basic-color-2': '#1A1B22',
+  'border-basic-color-2': '#2B2C38',
+  'color-primary-500': '#4FD3FF',
   'color-basic-100': '#101426',
   'color-basic-200': '#151A30',
   'color-basic-300': '#192038',
@@ -118,7 +119,7 @@ export const oceanBreezeTheme = {
   // 1. PRIMARY (blue) – 5 shades
 'color-primary-100': '#D0EFFF',  // lightest tint
   'color-primary-300': '#5CC1FF',  // light tint
-  'color-primary-500': '#00A3FF',  // main brand color
+  'color-primary-500': '#4FD3FF',  // main brand color
   'color-primary-700': '#007ACC',  // dark shade
   'color-primary-900': '#00568A',  // darkest shade
 
