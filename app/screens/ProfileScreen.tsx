@@ -1,14 +1,13 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Dimensions, View, StatusBar } from 'react-native';
-import { Text, Avatar, Button, Icon, useTheme } from '@ui-kitten/components';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Dimensions, View, StatusBar, TouchableOpacity } from 'react-native';
+import { Text, Avatar, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
+// import PagerView from 'react-native-pager-view';
+import { Bell, Settings, Shield, HelpCircle, Info, User, Camera, Trophy } from 'lucide-react-native';
 import { pillNavHeight } from '../constants/navigation';
 
 const { width } = Dimensions.get('window');
 const photoSize = (width - 48) / 3;
-
-const SettingsIcon = (props: any) => <Icon {...props} name='settings-outline' />;
-const AddIcon = (props: any) => <Icon {...props} name='plus-outline' />;
 
 const PhotoGridItem = ({ index }: { index: number }) => (
   <View style={styles.photoItem}>
@@ -18,9 +17,162 @@ const PhotoGridItem = ({ index }: { index: number }) => (
   </View>
 );
 
+const StatCard = ({ icon: Icon, value, label, theme }: { 
+  icon: any, 
+  value: string, 
+  label: string, 
+  theme: any 
+}) => (
+  <View style={[
+    styles.statCard,
+    { backgroundColor: theme['background-basic-color-2'] }
+  ]}>
+    <Icon size={20} color={theme['color-primary-500']} />
+    <Text category='h6' style={[styles.statValue, { color: theme['color-primary-500'] }]}>
+      {value}
+    </Text>
+    <Text category='c2' style={styles.statLabel}>
+      {label}
+    </Text>
+  </View>
+);
+
+const MenuItem = ({ icon: Icon, title, onPress, theme }: {
+  icon: any,
+  title: string,
+  onPress: () => void,
+  theme: any
+}) => (
+  <TouchableOpacity 
+    style={[
+      styles.menuItem,
+      { borderBottomColor: theme['border-basic-color-3'] }
+    ]}
+    onPress={onPress}
+  >
+    <Icon size={24} color={theme['color-basic-600']} />
+    <Text category='s1' style={styles.menuItemText}>
+      {title}
+    </Text>
+  </TouchableOpacity>
+);
+
 export const ProfileScreen = () => {
   const theme = useTheme();
-  const mockPhotos = Array.from({ length: 12 }, (_, i) => i);
+  const [currentPage, setCurrentPage] = useState(0);
+  // const pagerRef = useRef<PagerView>(null);
+  const mockPhotos = Array.from({ length: 9 }, (_, i) => i);
+
+  const handleMenuPress = (item: string) => {
+    console.log(`Pressed ${item}`);
+  };
+
+  const renderStreaksView = () => (
+    <ScrollView 
+      style={styles.pageContainer}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingBottom: pillNavHeight + 20 }
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Profile Header */}
+      <View style={styles.profileHeader}>
+        <Avatar
+          size='giant'
+          source={{ uri: 'https://via.placeholder.com/100' }}
+          style={[
+            styles.avatar,
+            { borderColor: theme['color-primary-500'] }
+          ]}
+        />
+        <Text category='h5' style={styles.displayName}>
+          John Doe
+        </Text>
+        <Text category='s2' style={styles.email}>
+          john.doe@keepr.app
+        </Text>
+      </View>
+
+      {/* Stats Cards */}
+      <View style={styles.statsCards}>
+        <StatCard 
+          icon={Trophy}
+          value="42"
+          label="Current Streak"
+          theme={theme}
+        />
+        <StatCard 
+          icon={Camera}
+          value="156"
+          label="Total Photos"
+          theme={theme}
+        />
+        <StatCard 
+          icon={User}
+          value="89"
+          label="Friends"
+          theme={theme}
+        />
+      </View>
+
+      {/* Photo Grid */}
+      <View style={styles.photosSection}>
+        <Text category='s1' style={styles.sectionTitle}>
+          Recent Streaks
+        </Text>
+        <View style={styles.photoGrid}>
+          {mockPhotos.map((_, index) => (
+            <PhotoGridItem key={index} index={index} />
+          ))}
+        </View>
+      </View>
+    </ScrollView>
+  );
+
+  const renderSettingsView = () => (
+    <ScrollView 
+      style={styles.pageContainer}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingBottom: pillNavHeight + 20 }
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.settingsContainer}>
+        <MenuItem 
+          icon={Bell}
+          title="Notifications"
+          onPress={() => handleMenuPress('Notifications')}
+          theme={theme}
+        />
+        <MenuItem 
+          icon={Shield}
+          title="Privacy & Security"
+          onPress={() => handleMenuPress('Privacy')}
+          theme={theme}
+        />
+        <MenuItem 
+          icon={Settings}
+          title="Account Settings"
+          onPress={() => handleMenuPress('Account')}
+          theme={theme}
+        />
+        <MenuItem 
+          icon={HelpCircle}
+          title="Help & Support"
+          onPress={() => handleMenuPress('Help')}
+          theme={theme}
+        />
+        <MenuItem 
+          icon={Info}
+          title="About Keepr"
+          onPress={() => handleMenuPress('About')}
+          theme={theme}
+        />
+      </View>
+    </ScrollView>
+  );
 
   return (
     <>
@@ -29,122 +181,52 @@ export const ProfileScreen = () => {
         styles.container,
         { backgroundColor: theme['background-basic-color-1'] }
       ]}>
-        <View style={[
-          styles.header,
-          { borderBottomColor: theme['border-basic-color-2'] }
-        ]}>
-          <Text category='h6' style={styles.username}>
-            @johndoe
-          </Text>
-          <Button
-            appearance='ghost'
-            status='basic'
-            accessoryLeft={SettingsIcon}
-            size='small'
-            style={styles.settingsButton}
-          />
+        {/* Tab Indicators */}
+        <View style={styles.tabIndicators}>
+          <TouchableOpacity
+            style={[
+              styles.tabIndicator,
+              currentPage === 0 && {
+                backgroundColor: theme['color-primary-500']
+              }
+            ]}
+            onPress={() => {
+              setCurrentPage(0);
+              // pagerRef.current?.setPage(0);
+            }}
+          >
+            <Text style={[
+              styles.tabText,
+              { color: currentPage === 0 ? '#FFFFFF' : theme['color-basic-600'] }
+            ]}>
+              Streaks
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.tabIndicator,
+              currentPage === 1 && {
+                backgroundColor: theme['color-primary-500']
+              }
+            ]}
+            onPress={() => {
+              setCurrentPage(1);
+              // pagerRef.current?.setPage(1);
+            }}
+          >
+            <Text style={[
+              styles.tabText,
+              { color: currentPage === 1 ? '#FFFFFF' : theme['color-basic-600'] }
+            ]}>
+              Settings
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        <ScrollView 
-          style={styles.scrollView} 
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: pillNavHeight + 16 }
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.content}>
-            <View style={styles.profileSection}>
-              <Avatar
-                size='giant'
-                source={{ uri: 'https://via.placeholder.com/100' }}
-                style={[
-                  styles.avatar,
-                  { borderColor: theme['color-primary-500'] }
-                ]}
-              />
-              
-              <View style={styles.userInfo}>
-                <Text category='h6' style={styles.displayName}>
-                  John Doe
-                </Text>
-                <Text category='s2' style={styles.bio}>
-                  Keeping my daily streak alive 🔥
-                </Text>
-              </View>
-
-              <View style={styles.statsContainer}>
-                <View style={styles.statItem}>
-                  <Text category='h6' style={[
-                    styles.statNumber,
-                    { color: theme['color-primary-500'] }
-                  ]}>
-                    42
-                  </Text>
-                  <Text category='c2' style={styles.statLabel}>
-                    Streak
-                  </Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text category='h6' style={[
-                    styles.statNumber,
-                    { color: theme['color-primary-500'] }
-                  ]}>
-                    156
-                  </Text>
-                  <Text category='c2' style={styles.statLabel}>
-                    Friends
-                  </Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text category='h6' style={[
-                    styles.statNumber,
-                    { color: theme['color-primary-500'] }
-                  ]}>
-                    1.2k
-                  </Text>
-                  <Text category='c2' style={styles.statLabel}>
-                    Likes
-                  </Text>
-                </View>
-              </View>
-
-              <Button
-                size='small'
-                style={[
-                  styles.editButton,
-                  { borderColor: theme['color-primary-500'] }
-                ]}
-                appearance='outline'
-              >
-                Edit Profile
-              </Button>
-            </View>
-
-            <View style={styles.photosSection}>
-              <View style={styles.sectionHeader}>
-                <Text category='s1' style={styles.sectionTitle}>
-                  My Streaks
-                </Text>
-                <Button
-                  appearance='ghost'
-                  status='primary'
-                  accessoryLeft={AddIcon}
-                  size='tiny'
-                  style={styles.addButton}
-                >
-                  Add Photo
-                </Button>
-              </View>
-
-              <View style={styles.photoGrid}>
-                {mockPhotos.map((_, index) => (
-                  <PhotoGridItem key={index} index={index} />
-                ))}
-              </View>
-            </View>
-          </View>
-        </ScrollView>
+        {/* Simple Tab Content */}
+        <View style={styles.contentContainer}>
+          {currentPage === 0 ? renderStreaksView() : renderSettingsView()}
+        </View>
       </SafeAreaView>
     </>
   );
@@ -154,93 +236,82 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  tabIndicators: {
     flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  tabIndicator: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    backgroundColor: 'transparent',
   },
-  username: {
+  tabText: {
     fontWeight: '600',
-    textAlign: 'left',
-    color: '#FFFFFF',
+    fontSize: 15,
   },
-  settingsButton: {
-    width: 40,
-    height: 40,
+  contentContainer: {
+    flex: 1,
   },
-  scrollView: {
+  pageContainer: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 120,
+    paddingBottom: 100,
   },
-  content: {
-    paddingHorizontal: 20,
-  },
-  profileSection: {
+  profileHeader: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingTop: 20,
+    paddingBottom: 24,
+    paddingHorizontal: 16,
   },
   avatar: {
     marginBottom: 20,
     borderWidth: 3,
   },
-  userInfo: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
   displayName: {
-    fontWeight: '600',
-    marginBottom: 8,
+    fontWeight: '700',
     color: '#FFFFFF',
+    marginBottom: 4,
   },
-  bio: {
-    textAlign: 'center',
-    maxWidth: 200,
-    color: '#CCCCCC',
+  email: {
+    color: '#AAAAAA',
   },
-  statsContainer: {
+  statsCards: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    width: '100%',
-    marginBottom: 28,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    gap: 12,
+    marginBottom: 24,
   },
-  statItem: {
+  statCard: {
+    flex: 1,
     alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 8,
   },
-  statNumber: {
-    fontWeight: 'bold',
-    fontSize: 24,
+  statValue: {
+    fontWeight: '700',
+    fontSize: 20,
   },
   statLabel: {
     color: '#AAAAAA',
-    marginTop: 4,
-  },
-  editButton: {
-    paddingHorizontal: 40,
+    fontSize: 12,
+    textAlign: 'center',
   },
   photosSection: {
-    paddingTop: 32,
-    paddingBottom: 40,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
+    paddingHorizontal: 16,
   },
   sectionTitle: {
     fontWeight: '600',
     color: '#FFFFFF',
-  },
-  addButton: {
-    borderRadius: 20,
+    marginBottom: 16,
+    fontSize: 16,
   },
   photoGrid: {
     flexDirection: 'row',
@@ -250,16 +321,33 @@ const styles = StyleSheet.create({
   },
   photoItem: {
     backgroundColor: '#2A2A2A',
-    borderRadius: 8,
-    marginBottom: 4,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    width: 100,
-    height: 100,
+    width: photoSize,
+    height: photoSize,
     borderWidth: 1,
     borderColor: '#444444',
   },
   photoText: {
     color: '#AAAAAA',
+    fontSize: 12,
+  },
+  settingsContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 4,
+    borderBottomWidth: 0.5,
+    gap: 16,
+  },
+  menuItemText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

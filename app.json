@@ -5,6 +5,17 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "sdkVersion": "53.0.0",
+    "plugins": [
+      [
+        "react-native-permissions",
+        {
+          "iosPermissions": [
+            "Camera"
+          ]
+        }
+      ]
+    ],
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
@@ -13,12 +24,23 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cappedcola.keepr",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Keepr needs camera access to capture photos for your daily streaks."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       }
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7f8669dd-cca7-4275-94b0-a59fc7c88796"
+      }
+    },
+    "owner": "cappedcola"
   }
 }
