@@ -9,7 +9,7 @@ import {
 	Animated,
 } from "react-native";
 import { Icon, useTheme } from "@ui-kitten/components";
-import { Ionicons } from "@expo/vector-icons";
+import { GalleryVerticalEnd, Plus, User } from 'lucide-react-native';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -20,9 +20,9 @@ import { pillNavHeight } from "../constants/navigation";
 
 const Tab = createBottomTabNavigator();
 
-const HomeIcon = (props: any) => <Ionicons name="home" {...props} />;
-const PersonIcon = (props: any) => <Ionicons name="person" {...props} />;
-const PlusIcon = (props: any) => <Ionicons name="add" {...props} />;
+const FeedIcon = (props: any) => <GalleryVerticalEnd {...props} />;
+const PersonIcon = (props: any) => <User {...props} />;
+const PlusIcon = (props: any) => <Plus {...props} />;
 
 interface GlassPillProps {
 	children: React.ReactNode;
@@ -59,7 +59,7 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 	const { width: screenWidth } = Dimensions.get("window");
 
 	const tabs = [
-		{ name: "Feed", icon: HomeIcon },
+		{ name: "Feed", icon: FeedIcon },
 		{ name: "Camera", icon: PlusIcon, isCenter: true },
 		{ name: "Profile", icon: PersonIcon },
 	];
@@ -68,6 +68,7 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 	const currentIndex = tabs.findIndex(
 		(tab) => tab.name === state.routeNames[state.index]
 	);
+	const isOnCameraTab = currentIndex === 1;
 
 	useEffect(() => {
 		Animated.spring(indicatorAnim, {
@@ -80,6 +81,30 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 
 	const navigateToTab = (routeName: string) => {
 		navigation.navigate(routeName as never);
+	};
+
+	const handleCameraButtonPress = async () => {
+		if (isOnCameraTab) {
+			// Trigger photo capture using global reference with error handling
+			try {
+				console.log('Camera button pressed - attempting capture');
+				if ((global as any).cameraCapture) {
+					console.log('Camera capture function found, executing...');
+					await (global as any).cameraCapture();
+					console.log('Camera capture completed successfully');
+				} else {
+					console.warn('Camera capture function not available');
+					// Could show user-friendly message here
+				}
+			} catch (error) {
+				console.error('Camera capture failed:', error);
+				// Graceful error handling - don't crash the app
+				// Could show error toast to user
+			}
+		} else {
+			console.log('Navigating to camera tab');
+			navigation.navigate("Camera");
+		}
 	};
 
 	const getIconColor = (tabName: string) => {
@@ -103,7 +128,7 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 											inputRange: [0, 1, 2],
 											outputRange: [
 												0,
-												screenWidth * 0.92 * 0.5,
+												screenWidth * 0.92 * 0.33,
 												screenWidth * 0.92 * 0.67,
 											],
 										}),
@@ -132,8 +157,13 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 			</GlassPill>
 
 			<TouchableOpacity
-				style={styles.plusButton}
-				onPress={() => navigation.navigate("Camera")}
+				style={[
+					styles.plusButton,
+					isOnCameraTab && {
+						backgroundColor: theme["color-primary-500"],
+					}
+				]}
+				onPress={handleCameraButtonPress}
 				activeOpacity={0.8}
 			>
 				<PlusIcon size={32} color="#FFFFFF" />
