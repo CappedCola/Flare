@@ -109,7 +109,7 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 
 	const getIconColor = (tabName: string) => {
 		return tabName === state.routeNames[state.index]
-			? "#FFFFFF"
+			? theme["text-on-primary-color"]
 			: theme["color-basic-600"];
 	};
 

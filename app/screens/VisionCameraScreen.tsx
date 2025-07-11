@@ -4,6 +4,8 @@ import { useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { RotateCcw, Check, X, Settings } from 'lucide-react-native';
+import { createPost } from '../services/firebaseService';
+import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
@@ -12,6 +14,7 @@ type LensType = 'ultra-wide' | 'standard';
 export const VisionCameraScreen = () => {
   console.log('🔵 VisionCameraScreen component initializing...');
   const theme = useTheme();
+  const { user, isAuthenticated } = useAuth();
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'checking'>('checking');
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -25,6 +28,8 @@ export const VisionCameraScreen = () => {
   const [visionCameraFailed, setVisionCameraFailed] = useState(false);
   const [isPollingPermissions, setIsPollingPermissions] = useState(false);
   const [hasTriedPermissionRequest, setHasTriedPermissionRequest] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   
   console.log('🔵 VisionCameraScreen state initialized');
   const cameraRef = useRef<Camera>(null);
@@ -430,10 +435,30 @@ export const VisionCameraScreen = () => {
     });
   };
 
-  const confirmPicture = () => {
-    // For now, just close preview
-    // Later this could save the photo or navigate to next screen
-    retakePicture();
+  const confirmPicture = async () => {
+    if (!capturedPhoto || !user) {
+      console.error('No photo captured or user not authenticated');
+      retakePicture();
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setUploadError(null);
+      
+      // Create post with captured photo
+      await createPost(`file://${capturedPhoto}`, '', user.id);
+      
+      console.log('Post created successfully!');
+      
+      // Close preview after successful upload
+      retakePicture();
+    } catch (error) {
+      console.error('Error creating post:', error);
+      setUploadError('Failed to upload photo. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   // Handle lens switching
@@ -484,7 +509,7 @@ export const VisionCameraScreen = () => {
             {hasTriedPermissionRequest ? (
               <>
                 <Text style={styles.instructionsText}>1. Tap "Open Settings" below</Text>
-                <Text style={styles.instructionsText}>2. Scroll down and tap "Keepr"</Text>
+                <Text style={styles.instructionsText}>2. Scroll down and tap "Flare"</Text>
                 <Text style={styles.instructionsText}>3. Tap "Camera" and enable access</Text>
                 <Text style={styles.instructionsText}>4. Return to app - wide-angle camera (.5x) will work!</Text>
               </>
@@ -663,13 +688,32 @@ export const VisionCameraScreen = () => {
               <TouchableOpacity 
                 style={[
                   styles.modernActionButton, 
-                  photoOrientation === 'landscape' ? styles.confirmButtonCornerLandscape : styles.confirmButtonCorner
+                  photoOrientation === 'landscape' ? styles.confirmButtonCornerLandscape : styles.confirmButtonCorner,
+                  isUploading && styles.disabledButton
                 ]}
                 onPress={confirmPicture}
-                activeOpacity={0.7}
+                activeOpacity={isUploading ? 1 : 0.7}
+                disabled={isUploading}
               >
-                <Check size={28} color="#FFFFFF" />
+                {isUploading ? (
+                  <Text style={styles.uploadingText}>...</Text>
+                ) : (
+                  <Check size={28} color="#FFFFFF" />
+                )}
               </TouchableOpacity>
+              
+              {/* Upload Error Message */}
+              {uploadError && (
+                <View style={[
+                  styles.errorMessage,
+                  photoOrientation === 'landscape' && styles.errorMessageLandscape
+                ]}>
+                  <Text style={styles.errorText}>{uploadError}</Text>
+                  <TouchableOpacity onPress={() => setUploadError(null)}>
+                    <X size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              )}
             </Animated.View>
           )}
         </View>
@@ -940,5 +984,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  disabledButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    opacity: 0.6,
+  },
+  uploadingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  errorMessage: {
+    position: 'absolute',
+    bottom: 120,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(244, 67, 54, 0.9)',
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorMessageLandscape: {
+    bottom: 20,
+    left: 120,
+    right: 120,
+  },
+  errorText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+    marginRight: 8,
   },
 });

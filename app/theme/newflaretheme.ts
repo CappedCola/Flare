@@ -25,18 +25,18 @@ export const flareThemeLogoBased = {
   'color-secondary-200': '#A97456',
   'color-secondary-300': '#8B5E3C',
 
-  // Contrast black tones
-  'color-basic-100': '#000000',
-  'color-basic-200': '#1A1A1A',
-  'color-basic-300': '#333333',
-  'color-basic-400': '#4D4D4D',
-  'color-basic-500': '#666666',
-  'color-basic-600': '#999999',
-  'color-basic-700': '#CCCCCC',
-  'color-basic-800': '#EDEDED',
-  'color-basic-900': '#FFFFFF',
-  'color-basic-1000': '#FFFFFF',
-  'color-basic-1100': '#FFFFFF',
+  // Light theme tones (inverted for light UI)
+  'color-basic-100': '#FFFFFF',      // Pure white for cards/surfaces
+  'color-basic-200': '#FAF9F6',      // Off-white for subtle backgrounds
+  'color-basic-300': '#F5F5F5',      // Light gray for subtle elements
+  'color-basic-400': '#E8E8E8',      // Light borders
+  'color-basic-500': '#CCCCCC',      // Medium borders/dividers
+  'color-basic-600': '#999999',      // Secondary text
+  'color-basic-700': '#666666',      // Inactive text
+  'color-basic-800': '#333333',      // Active text
+  'color-basic-900': '#2C2C2C',      // Primary text (dark)
+  'color-basic-1000': '#1A1A1A',     // Highest contrast text
+  'color-basic-1100': '#000000',     // Pure black for maximum contrast
 
   // System statuses
   'color-success-500': '#43A047',
@@ -44,18 +44,29 @@ export const flareThemeLogoBased = {
   'color-danger-500': '#B71C1C',
   'color-info-500': '#00ACC1',
 
-  // Backgrounds
-  'background-basic-color-1': '#FF4D4D',    // App primary red
-  'background-basic-color-2': '#1A1A1A',    // Section backgrounds
-  'background-basic-color-3': '#FDFBF9',    // Card/tiles (firework body)
+  // Backgrounds (light theme)
+  'background-basic-color-1': '#FDF6EC',    // Main app background (light beige)
+  'background-basic-color-2': '#FAF9F6',    // Section backgrounds (off-white)
+  'background-basic-color-3': '#FFFFFF',    // Cards/tiles (pure white)
 
-  // Border contrast
-  'border-basic-color-2': '#333333',
-  'border-basic-color-3': '#4D4D4D',
+  // Border contrast (light theme)
+  'border-basic-color-2': '#E8E8E8',        // Light borders
+  'border-basic-color-3': '#CCCCCC',        // Medium borders
+  'border-basic-color-4': '#999999',        // Stronger borders
 
   // Spark color
   'color-warning-100': '#FFF9D1',
   'color-warning-200': '#FFEC80',
   'color-warning-300': '#FFD700', // bright yellow spark
+
+  // Shadow colors for light theme
+  'shadow-color': 'rgba(0, 0, 0, 0.1)',
+  'shadow-color-strong': 'rgba(0, 0, 0, 0.15)',
+  
+  // Text colors for easy reference
+  'text-primary-color': '#2C2C2C',      // Primary dark text
+  'text-secondary-color': '#666666',    // Secondary gray text
+  'text-hint-color': '#999999',         // Hint/placeholder text
+  'text-on-primary-color': '#FFFFFF',   // White text on red backgrounds
 };
 
