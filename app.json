@@ -1,12 +1,21 @@
 {
   "expo": {
-    "name": "Keepr",
-    "slug": "keepr",
+    "name": "Flare",
+    "slug": "flare",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "sdkVersion": "53.0.0",
     "plugins": [
+      "@react-native-firebase/app",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
       [
         "react-native-permissions",
         {
@@ -24,23 +33,25 @@
       "**/*"
     ],
     "ios": {
+      "googleServicesFile": "./GoogleService-Info.plist",
       "supportsTablet": true,
-      "bundleIdentifier": "com.cappedcola.keepr",
+      "bundleIdentifier": "com.cappedcola.flare",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Keepr needs camera access to capture photos for your daily streaks."
+        "NSCameraUsageDescription": "Flare needs camera access to capture photos for your daily streaks."
       }
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       }
     },
+    "owner": "cappedcola",
     "extra": {
       "eas": {
-        "projectId": "7f8669dd-cca7-4275-94b0-a59fc7c88796"
+        "projectId": "b258bf68-5821-453e-9989-f096b38a4802"
       }
-    },
-    "owner": "cappedcola"
+    }
   }
 }

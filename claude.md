@@ -1,12 +1,12 @@
-# Keepr - Streak Photo Social App
+# Flare - Streak Photo Social App
 
 ## Product Description
 
-Keepr is a social photo-sharing app focused on daily streaks and authentic moments. Users capture and share daily photos to maintain streaks with friends, inspired by BeReal's authentic sharing model and Snapchat's camera-first experience.
+Flare is a social photo-sharing app focused on daily streaks and authentic moments. Users capture and share daily photos to maintain streaks with friends, inspired by BeReal's authentic sharing model and Snapchat's camera-first experience.
 
 ## DEVICES
 
-keepr is meant to be used on multiple different devices and you should make any UI changes with this inmind. Don't 'hardcode' things if you shouldn't so that the UI will look good on multiple different devies including the different phones, and ipads.
+Flare is meant to be used on multiple different devices and you should make any UI changes with this in mind. Don't 'hardcode' things if you shouldn't so that the UI will look good on multiple different devices including the different phones, and ipads.
 
 ### User Flow
 
@@ -47,7 +47,7 @@ keepr is meant to be used on multiple different devices and you should make any 
     │   └── navigation.ts      # Navigation height constants for consistent spacing
     ├── components/            # Shared reusable components (empty for now)
     ├── theme/
-    │   └── theme.ts          # Custom Eva Design theme
+    │   └── newflaretheme.ts   # Custom Flare Eva Design theme
     └── assets/               # Static assets
 ```
 
@@ -55,20 +55,23 @@ keepr is meant to be used on multiple different devices and you should make any 
 
 ### Theme Configuration
 
-The app uses a custom Eva Design theme with these key colors:
+The app uses a custom Eva Design theme with a modern light visual identity and Flare branding colors:
 
-- **Primary**: `#5D5FEF` (purple brand color)
-- **Light/Dark mode support** with inverted color palettes
-- **Card-based layouts** with rounded corners and subtle shadows
+- **Primary**: `#FF4D4D` (main red brand color for accents and buttons)
+- **Background**: Light beige (`#FDF6EC`) main background, off-white (`#FAF9F6`) sections, pure white (`#FFFFFF`) cards
+- **Text**: Dark gray (`#2C2C2C`) for primary text, medium gray (`#666666`) for secondary text
+- **Borders**: Light gray (`#E8E8E8`) for subtle borders, medium gray (`#CCCCCC`) for stronger borders
+- **Shadows**: Subtle drop shadows (`rgba(0, 0, 0, 0.1)`) for modern card depth
+- **Visual Style**: Light, airy, and friendly with high contrast readability
 
 ### Component Patterns
 
-- **Feed Cards**: Social media layout with user avatars, photo placeholders, and action buttons (Heart, MessageCircle, Expand icons)
-- **Apple Glass Pill Navigation**: Modern bottom navigation with blur effects, animated indicators, and floating plus button
-- **Camera Interface**: Full-screen expo-camera implementation with permission handling and location display
-- **Profile Tabs**: Dual-view interface with animated tab switching between "Streaks" and "Settings" views
-- **Stats Cards**: Metric display cards showing streak count, total photos, and friend count with themed icons
-- **Photo Grid**: 3-column responsive grid layout with placeholder items for streak photos
+- **Feed Cards**: Light white cards with subtle shadows, social media layout with user avatars, photo placeholders, and action buttons (Heart, MessageCircle, Expand icons)
+- **Apple Glass Pill Navigation**: Modern bottom navigation with adaptive blur effects that work with light backgrounds, animated indicators, and floating plus button
+- **Camera Interface**: Full-screen react-native-vision-camera implementation with permission handling and location display
+- **Profile Tabs**: Dual-view interface with animated tab switching between "Streaks" and "Settings" views, using light card backgrounds
+- **Stats Cards**: Clean white metric display cards with colored accents showing streak count, total photos, and friend count with themed icons
+- **Photo Grid**: 3-column responsive grid layout with light card items for streak photos, featuring subtle shadows and borders
 
 ## AI Collaboration Tips
 
@@ -110,19 +113,20 @@ When requesting code reorganization:
 
 - "Add a comments modal to FeedScreen that slides up from bottom"
 - "Create a shared components folder with a reusable PhotoCard component"
-- "Update the theme.ts to support switching between light and dark themes"
+- "Update the newflaretheme.ts to support switching between light and dark themes"
 - "Add navigation to a new SettingsScreen from ProfileScreen header"
 
 ## Sprint TODO List
 
 ### Phase 1: Core Features
 
-- [x] Implement actual camera functionality with expo-camera
+- [x] Implement actual camera functionality with react-native-vision-camera
 - [x] Create Apple glass pill navigation with blur effects
 - [x] Add animated tab indicators and floating camera button
 - [x] Implement profile screen with tabbed interface
 - [x] Add responsive design for multiple device sizes
-- [ ] Add photo capture and storage functionality
+- [x] Add photo capture and storage functionality
+- [x] Apply Flare theme throughout the app
 - [ ] Add photo upload and storage integration
 - [ ] Create user authentication flow
 - [ ] Implement real-time streak tracking
@@ -161,40 +165,76 @@ npm start
 npm run ios
 npm run android
 npm run web
+
+# Run with development client
+npx expo start --dev-client
 ```
 
 ## Current Implementation Status
 
 ### Completed Features
-- **Camera Integration**: Full expo-camera implementation with permission handling and error states
+- **Camera Integration**: Full react-native-vision-camera implementation with permission handling and error states
 - **Modern Navigation**: Apple-inspired glass pill bottom navigation with blur effects and smooth animations
 - **Responsive Design**: Device-agnostic UI that adapts to different screen sizes (phones, tablets)
 - **Profile Interface**: Tabbed profile screen with stats cards and photo grid layout
 - **Icon System**: Comprehensive Lucide React Native icon integration throughout the app
-- **Theme Integration**: Dark mode support with proper UI Kitten theme implementation
+- **Theme Integration**: Modern light Flare theme with bright, friendly visual identity and proper UI Kitten theme implementation
+- **Photo Capture**: Working photo capture with orientation detection and proper preview display
+- **Lens Switching**: Ultra-wide (.5x) and standard (1x) camera lens support for compatible devices
 
 ### Technical Improvements Made
 - **Navigation Constants**: Centralized navigation height constants in `app/constants/navigation.ts`
 - **Glass Morphism**: Advanced blur effects using expo-blur and linear gradients
 - **Animated Interactions**: Smooth tab switching and indicator animations
-- **Permission Management**: Proper camera permission handling with user-friendly error states
+- **Permission Management**: Proper camera permission handling with user-friendly error states using react-native-permissions
 - **Screen Adaptations**: Responsive layouts with proper safe area handling
+- **Photo Orientation**: Dynamic photo preview rotation for landscape photos with properly positioned UI controls
 
 ### Current UI State
-- **FeedScreen**: Social media-style cards with avatars, photo placeholders, and action buttons
-- **CameraScreen**: Full-screen camera with location display and friends-only indicator
-- **ProfileScreen**: Two-tab interface (Streaks/Settings) with stats overview and photo grid
-- **BottomTabs**: Floating glass pill navigation with animated active state indicators
+- **FeedScreen**: Light, modern social media-style white cards with subtle shadows, avatars, photo placeholders, and action buttons with Flare branding
+- **CameraScreen**: Full-screen camera with location display and friends-only indicator using Vision Camera
+- **ProfileScreen**: Light-themed two-tab interface (Streaks/Settings) with white stats cards, subtle shadows, and clean photo grid
+- **BottomTabs**: Floating glass pill navigation with adaptive blur effects and animated active state indicators
 
 ## Notes for Future Development
 
-- Photo capture functionality is implemented but needs storage integration
+- Photo capture functionality is implemented with Vision Camera for hardware lens access
 - Photo storage will need backend integration (Firebase, AWS S3, etc.)
 - Real-time features will require WebSocket or similar real-time connection
 - Push notifications will need expo-notifications setup
 - The app prioritizes camera-first experience with quick access via floating button
 - All data is currently mocked - backend integration needed for real functionality
+- Vision Camera requires EAS development builds for full functionality
 
 ## Development Flows
 
-- Use these two developments flows to know about how they work and how I can run the app in either way if I need for the camera
+- Use these two development flows to know about how they work and how I can run the app in either way if I need for the camera
+
+## Firebase Integration Status
+
+### ✅ Completed Implementation
+- **Firebase Config**: `app/config/firebase.ts` - Complete React Native Firebase setup
+- **Service Layer**: `app/services/firebaseService.ts` - All Firebase operations (auth, posts, storage)
+- **Authentication Context**: `app/context/AuthContext.tsx` - React Context for auth state management
+- **Real-time Feed**: FeedScreen connected to live Firestore subscriptions
+- **Photo Upload**: Camera screen uploads photos to Firebase Storage and creates Firestore posts
+- **Type Safety**: Complete TypeScript interfaces in `app/types/index.ts`
+
+### 🔧 Firebase Services Used
+- **Authentication**: Email/password sign up, sign in, sign out with user document creation
+- **Firestore**: Real-time post subscriptions, user data storage, like system
+- **Storage**: Photo upload with automatic URL generation and metadata storage
+- **Real-time Listeners**: Live feed updates, authentication state changes
+
+### 📊 Data Flow Implementation
+1. **Photo Capture**: Vision Camera → Local file URI
+2. **Upload Process**: Firebase Storage upload → Download URL generation
+3. **Post Creation**: Firestore document with photo URL, user data, timestamp
+4. **Real-time Display**: onSnapshot listener → Automatic feed updates for all users
+5. **Social Interactions**: Like system with real-time user ID tracking
+
+# Important Instruction Reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

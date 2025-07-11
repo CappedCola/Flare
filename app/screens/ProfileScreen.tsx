@@ -1,19 +1,38 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Dimensions, View, StatusBar, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { ScrollView, StyleSheet, Dimensions, View, StatusBar, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { Text, Avatar, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // import PagerView from 'react-native-pager-view';
 import { Bell, Settings, Shield, HelpCircle, Info, User, Camera, Trophy } from 'lucide-react-native';
 import { pillNavHeight } from '../constants/navigation';
+import { User as UserType } from '../types';
+import { getCurrentUser, getUserPhotos } from '../services/mockDataService';
 
 const { width } = Dimensions.get('window');
 const photoSize = (width - 48) / 3;
 
-const PhotoGridItem = ({ index }: { index: number }) => (
-  <View style={styles.photoItem}>
-    <Text category='c2' style={styles.photoText}>
-      Day {index + 1}
-    </Text>
+const PhotoGridItem = ({ photoUrl, index, theme }: { photoUrl: string, index: number, theme: any }) => (
+  <View style={[
+    styles.photoItem,
+    { 
+      backgroundColor: theme['background-basic-color-3'],
+      borderColor: theme['border-basic-color-2']
+    }
+  ]}>
+    {photoUrl ? (
+      <Image
+        source={{ uri: photoUrl }}
+        style={styles.photoImage}
+        resizeMode="cover"
+      />
+    ) : (
+      <Text category='c2' style={[
+        styles.photoText,
+        { color: theme['text-secondary-color'] }
+      ]}>
+        Day {index + 1}
+      </Text>
+    )}
   </View>
 );
 
@@ -31,7 +50,10 @@ const StatCard = ({ icon: Icon, value, label, theme }: {
     <Text category='h6' style={[styles.statValue, { color: theme['color-primary-500'] }]}>
       {value}
     </Text>
-    <Text category='c2' style={styles.statLabel}>
+    <Text category='c2' style={[
+      styles.statLabel,
+      { color: theme['text-secondary-color'] }
+    ]}>
       {label}
     </Text>
   </View>
@@ -51,7 +73,10 @@ const MenuItem = ({ icon: Icon, title, onPress, theme }: {
     onPress={onPress}
   >
     <Icon size={24} color={theme['color-basic-600']} />
-    <Text category='s1' style={styles.menuItemText}>
+    <Text category='s1' style={[
+      styles.menuItemText,
+      { color: theme['text-primary-color'] }
+    ]}>
       {title}
     </Text>
   </TouchableOpacity>
@@ -61,74 +86,129 @@ export const ProfileScreen = () => {
   const theme = useTheme();
   const [currentPage, setCurrentPage] = useState(0);
   // const pagerRef = useRef<PagerView>(null);
-  const mockPhotos = Array.from({ length: 9 }, (_, i) => i);
+  const [user, setUser] = useState<UserType | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const handleMenuPress = (item: string) => {
     console.log(`Pressed ${item}`);
   };
 
-  const renderStreaksView = () => (
-    <ScrollView 
-      style={styles.pageContainer}
-      contentContainerStyle={[
-        styles.scrollContent,
-        { paddingBottom: pillNavHeight + 20 }
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Profile Header */}
-      <View style={styles.profileHeader}>
-        <Avatar
-          size='giant'
-          source={{ uri: 'https://via.placeholder.com/100' }}
-          style={[
-            styles.avatar,
-            { borderColor: theme['color-primary-500'] }
-          ]}
-        />
-        <Text category='h5' style={styles.displayName}>
-          John Doe
-        </Text>
-        <Text category='s2' style={styles.email}>
-          john.doe@keepr.app
-        </Text>
-      </View>
+  // Load user data and photos
+  const loadUserData = async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      
+      const [userData, userPhotos] = await Promise.all([
+        getCurrentUser(),
+        getUserPhotos('1') // Using mock current user ID
+      ]);
+      
+      setUser(userData);
+      setPhotos(userPhotos);
+    } catch (err) {
+      setError('Failed to load profile data. Please try again.');
+      console.error('Error loading user data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      {/* Stats Cards */}
-      <View style={styles.statsCards}>
-        <StatCard 
-          icon={Trophy}
-          value="42"
-          label="Current Streak"
-          theme={theme}
-        />
-        <StatCard 
-          icon={Camera}
-          value="156"
-          label="Total Photos"
-          theme={theme}
-        />
-        <StatCard 
-          icon={User}
-          value="89"
-          label="Friends"
-          theme={theme}
-        />
-      </View>
+  // Load data on component mount
+  useEffect(() => {
+    loadUserData();
+  }, []);
 
-      {/* Photo Grid */}
-      <View style={styles.photosSection}>
-        <Text category='s1' style={styles.sectionTitle}>
-          Recent Streaks
-        </Text>
-        <View style={styles.photoGrid}>
-          {mockPhotos.map((_, index) => (
-            <PhotoGridItem key={index} index={index} />
-          ))}
+  const renderStreaksView = () => {
+    if (!user) return null;
+    
+    return (
+      <ScrollView 
+        style={styles.pageContainer}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: pillNavHeight + 20 }
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile Header */}
+        <View style={styles.profileHeader}>
+          <Avatar
+            size='giant'
+            source={{ uri: user.avatar || 'https://via.placeholder.com/100' }}
+            style={[
+              styles.avatar,
+              { borderColor: theme['color-primary-500'] }
+            ]}
+          />
+          <Text category='h5' style={[
+            styles.displayName,
+            { color: theme['text-primary-color'] }
+          ]}>
+            {user.displayName}
+          </Text>
+          <Text category='s2' style={[
+            styles.email,
+            { color: theme['text-secondary-color'] }
+          ]}>
+            {user.email}
+          </Text>
+          {user.bio && (
+            <Text category='p2' style={[
+              styles.bio,
+              { color: theme['text-secondary-color'] }
+            ]}>
+              {user.bio}
+            </Text>
+          )}
         </View>
-      </View>
-    </ScrollView>
-  );
+
+        {/* Stats Cards */}
+        <View style={styles.statsCards}>
+          <StatCard 
+            icon={Trophy}
+            value={user.currentStreak.toString()}
+            label="Current Streak"
+            theme={theme}
+          />
+          <StatCard 
+            icon={Camera}
+            value={user.totalPhotos.toString()}
+            label="Total Photos"
+            theme={theme}
+          />
+          <StatCard 
+            icon={User}
+            value={user.friends.length.toString()}
+            label="Friends"
+            theme={theme}
+          />
+        </View>
+
+        {/* Photo Grid */}
+        <View style={styles.photosSection}>
+          <Text category='s1' style={[
+            styles.sectionTitle,
+            { color: theme['text-primary-color'] }
+          ]}>
+            Recent Streaks
+          </Text>
+          <View style={styles.photoGrid}>
+            {photos.map((photoUrl, index) => (
+              <PhotoGridItem 
+                key={index} 
+                photoUrl={photoUrl} 
+                index={index} 
+                theme={theme} 
+              />
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
 
   const renderSettingsView = () => (
     <ScrollView 
@@ -166,13 +246,58 @@ export const ProfileScreen = () => {
         />
         <MenuItem 
           icon={Info}
-          title="About Keepr"
+          title="About Flare"
           onPress={() => handleMenuPress('About')}
           theme={theme}
         />
       </View>
     </ScrollView>
   );
+
+  // Loading state
+  if (loading) {
+    return (
+      <SafeAreaView style={[
+        styles.container,
+        styles.centered,
+        { backgroundColor: theme['background-basic-color-1'] }
+      ]}>
+        <ActivityIndicator size="large" color={theme['color-primary-500']} />
+        <Text category='s1' style={[
+          styles.loadingText,
+          { color: theme['text-secondary-color'] }
+        ]}>
+          Loading profile...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <SafeAreaView style={[
+        styles.container,
+        styles.centered,
+        { backgroundColor: theme['background-basic-color-1'] }
+      ]}>
+        <Text category='s1' style={[
+          styles.errorText,
+          { color: theme['text-danger-color'] }
+        ]}>
+          {error}
+        </Text>
+        <TouchableOpacity onPress={loadUserData} style={styles.retryButton}>
+          <Text category='s1' style={[
+            styles.retryText,
+            { color: theme['color-primary-500'] }
+          ]}>
+            Retry
+          </Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <>
@@ -197,7 +322,7 @@ export const ProfileScreen = () => {
           >
             <Text style={[
               styles.tabText,
-              { color: currentPage === 0 ? '#FFFFFF' : theme['color-basic-600'] }
+              { color: currentPage === 0 ? theme['text-on-primary-color'] : theme['text-secondary-color'] }
             ]}>
               Streaks
             </Text>
@@ -216,7 +341,7 @@ export const ProfileScreen = () => {
           >
             <Text style={[
               styles.tabText,
-              { color: currentPage === 1 ? '#FFFFFF' : theme['color-basic-600'] }
+              { color: currentPage === 1 ? theme['text-on-primary-color'] : theme['text-secondary-color'] }
             ]}>
               Settings
             </Text>
@@ -275,12 +400,9 @@ const styles = StyleSheet.create({
   },
   displayName: {
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 4,
   },
-  email: {
-    color: '#AAAAAA',
-  },
+  email: {},
   statsCards: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -300,7 +422,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   statLabel: {
-    color: '#AAAAAA',
     fontSize: 12,
     textAlign: 'center',
   },
@@ -309,7 +430,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontWeight: '600',
-    color: '#FFFFFF',
     marginBottom: 16,
     fontSize: 16,
   },
@@ -320,17 +440,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   photoItem: {
-    backgroundColor: '#2A2A2A',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     width: photoSize,
     height: photoSize,
     borderWidth: 1,
-    borderColor: '#444444',
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   photoText: {
-    color: '#AAAAAA',
     fontSize: 12,
   },
   settingsContainer: {
@@ -346,8 +468,38 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   menuItemText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '500',
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  bio: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    padding: 12,
+  },
+  retryText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

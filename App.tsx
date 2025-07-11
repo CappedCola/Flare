@@ -6,7 +6,8 @@ import { useFonts, Inter_400Regular } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { RootNavigator } from './app/navigation/RootNavigator';
 import * as eva from '@eva-design/eva';
-import { oceanBreezeTheme } from './app/theme/theme';
+import { flareThemeLogoBased } from './app/theme/newflaretheme';
+import { AuthProvider } from './app/context/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,9 +29,11 @@ export default function App() {
   return (
     <>
       <IconRegistry icons={EvaIconsPack} />
-      <ApplicationProvider {...eva} theme={oceanBreezeTheme}>
-        <RootNavigator />
-        <StatusBar style="auto" />
+      <ApplicationProvider {...eva} theme={flareThemeLogoBased}>
+        <AuthProvider>
+          <RootNavigator />
+          <StatusBar style="auto" />
+        </AuthProvider>
       </ApplicationProvider>
     </>
   );
