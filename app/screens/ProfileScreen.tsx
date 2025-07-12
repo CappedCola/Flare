@@ -6,7 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bell, Settings, Shield, HelpCircle, Info, User, Camera, Trophy } from 'lucide-react-native';
 import { pillNavHeight } from '../constants/navigation';
 import { User as UserType } from '../types';
-import { getCurrentUser, getUserPhotos } from '../services/mockDataService';
+import { getUserPhotos } from '../services/firebaseService';
+import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 const photoSize = (width - 48) / 3;
@@ -86,7 +87,7 @@ export const ProfileScreen = () => {
   const theme = useTheme();
   const [currentPage, setCurrentPage] = useState(0);
   // const pagerRef = useRef<PagerView>(null);
-  const [user, setUser] = useState<UserType | null>(null);
+  const { user } = useAuth();
   const [photos, setPhotos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,18 +96,15 @@ export const ProfileScreen = () => {
     console.log(`Pressed ${item}`);
   };
 
-  // Load user data and photos
+  // Load user photos
   const loadUserData = async () => {
+    if (!user) return;
+    
     try {
       setError(null);
       setLoading(true);
       
-      const [userData, userPhotos] = await Promise.all([
-        getCurrentUser(),
-        getUserPhotos('1') // Using mock current user ID
-      ]);
-      
-      setUser(userData);
+      const userPhotos = await getUserPhotos(user.id);
       setPhotos(userPhotos);
     } catch (err) {
       setError('Failed to load profile data. Please try again.');
@@ -116,10 +114,12 @@ export const ProfileScreen = () => {
     }
   };
 
-  // Load data on component mount
+  // Load data when user is available
   useEffect(() => {
-    loadUserData();
-  }, []);
+    if (user) {
+      loadUserData();
+    }
+  }, [user]);
 
   const renderStreaksView = () => {
     if (!user) return null;
@@ -295,6 +295,24 @@ export const ProfileScreen = () => {
             Retry
           </Text>
         </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  // User not authenticated (shouldn't happen with navigation, but safety check)
+  if (!user) {
+    return (
+      <SafeAreaView style={[
+        styles.container,
+        styles.centered,
+        { backgroundColor: theme['background-basic-color-1'] }
+      ]}>
+        <Text category='s1' style={[
+          styles.errorText,
+          { color: theme['text-hint-color'] }
+        ]}>
+          Please sign in to view your profile
+        </Text>
       </SafeAreaView>
     );
   }
