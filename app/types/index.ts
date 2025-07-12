@@ -177,6 +177,27 @@ export interface UseProfileReturn {
   loadPhotos: () => Promise<void>;
 }
 
+// Navigation types
+export type RootStackParamList = {
+  Main: undefined;
+  PostUpload: {
+    photoUri: string;
+    photoOrientation?: 'portrait' | 'landscape';
+  };
+};
+
+export type AuthStackParamList = {
+  Welcome: undefined;
+  SignUp: undefined;
+  SignIn: undefined;
+};
+
+export type TabParamList = {
+  Feed: undefined;
+  Camera: undefined;
+  Profile: undefined;
+};
+
 // Utility types
 export type Theme = any; // UI Kitten theme type
 export type NavigationProp = any; // React Navigation type
