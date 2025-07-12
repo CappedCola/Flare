@@ -40,7 +40,7 @@ interface PostUploadScreenProps {
   };
 }
 
-export const PostUploadScreen = ({ navigation, route }: PostUploadScreenProps) => {
+export const PostUploadScreen: React.FC<PostUploadScreenProps> = ({ navigation, route }) => {
   const theme = useTheme();
   const { user } = useAuth();
   const { photoUri, photoOrientation = 'portrait' } = route.params;
@@ -53,6 +53,7 @@ export const PostUploadScreen = ({ navigation, route }: PostUploadScreenProps) =
   
   const confettiRef = useRef<any>(null);
   const successOpacity = useRef(new Animated.Value(0)).current;
+  const descriptionInputRef = useRef<any>(null);
   const { width: screenWidth } = Dimensions.get('window');
 
   // Get current time formatted
@@ -64,6 +65,17 @@ export const PostUploadScreen = ({ navigation, route }: PostUploadScreenProps) =
     minute: '2-digit',
     hour12: true
   });
+
+  // Auto-focus description input when screen loads
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (descriptionInputRef.current) {
+        descriptionInputRef.current.focus();
+      }
+    }, 500); // Small delay to ensure screen transition is complete
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleGoBack = () => {
     navigation.goBack();
@@ -79,8 +91,12 @@ export const PostUploadScreen = ({ navigation, route }: PostUploadScreenProps) =
       setIsUploading(true);
       setUploadError(null);
       
+      console.log('📤 Starting upload process...');
+      
       // Create post with photo and optional description
       await createPost(photoUri, description.trim(), user.id);
+      
+      console.log('✅ Upload completed successfully!');
       
       // Show success state
       setShowSuccess(true);
@@ -136,13 +152,13 @@ export const PostUploadScreen = ({ navigation, route }: PostUploadScreenProps) =
           ]}
         >
           <Text style={[styles.congratsTitle, { color: theme['color-primary-500'] }]}>
-            🎉 Congratulations! 🎉
+            🎉 Amazing! 🎉
           </Text>
           <Text style={[styles.congratsSubtitle, { color: theme['text-primary-color'] }]}>
-            Your photo has been uploaded successfully!
+            Your moment has been shared!
           </Text>
           <Text style={[styles.congratsText, { color: theme['text-secondary-color'] }]}>
-            Your streak continues! Keep sharing those daily moments.
+            Your streak continues! ✨ Keep sharing those daily moments and building your photo story.
           </Text>
         </Animated.View>
       </SafeAreaView>
@@ -191,6 +207,7 @@ export const PostUploadScreen = ({ navigation, route }: PostUploadScreenProps) =
               Description
             </Text>
             <Input
+              ref={descriptionInputRef}
               placeholder="What's happening in this moment?"
               value={description}
               onChangeText={setDescription}

@@ -34,7 +34,7 @@ const MainNavigator = () => {
       <MainStack.Screen name="Main" component={BottomTabs} />
       <MainStack.Screen 
         name="PostUpload" 
-        component={PostUploadScreen}
+        component={PostUploadScreen as any}
         options={{
           presentation: 'modal',
           animation: 'slide_from_bottom'

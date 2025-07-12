@@ -5,7 +5,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RotateCcw, Check } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
-export const ExpoCameraScreen = ({ navigation }: { navigation: any }) => {
+interface ExpoCameraScreenProps {
+  navigation: any;
+}
+
+export const ExpoCameraScreen = ({ navigation }: ExpoCameraScreenProps) => {
   const theme = useTheme();
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);

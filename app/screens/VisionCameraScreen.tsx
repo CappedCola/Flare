@@ -10,7 +10,11 @@ import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 type LensType = 'ultra-wide' | 'standard';
 
-export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
+interface VisionCameraScreenProps {
+  navigation: any;
+}
+
+export const VisionCameraScreen = ({ navigation }: VisionCameraScreenProps) => {
   console.log('🔵 VisionCameraScreen component initializing...');
   const theme = useTheme();
   const { user, isAuthenticated } = useAuth();
@@ -319,21 +323,6 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
     }
   }, [permissionStatus]);
 
-  // Expose takePicture function to be called from navigation
-  useFocusEffect(
-    React.useCallback(() => {
-      // Store the takePicture function in a global reference
-      // This allows the bottom tab navigation to trigger it
-      console.log('Setting up global camera capture function');
-      (global as any).cameraCapture = takePicture;
-      
-      return () => {
-        console.log('Cleaning up global camera capture function');
-        (global as any).cameraCapture = null;
-      };
-    }, [takePicture])
-  );
-
   const takePicture = async () => {
     console.log('=== takePicture called ===');
     console.log('Camera ref exists:', !!cameraRef.current);
@@ -373,8 +362,6 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
       setIsCapturing(true);
       
       const photo = await cameraRef.current.takePhoto({
-        quality: 80,
-        enableAutoStabilization: true,
         enableShutterSound: false,
       });
       
@@ -420,6 +407,22 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
     }
   };
 
+  // Expose takePicture function to be called from navigation
+  useFocusEffect(
+    React.useCallback(() => {
+      // Store the takePicture function in a global reference
+      // This allows the bottom tab navigation to trigger it
+      console.log('Setting up global camera capture function');
+      (global as any).cameraCapture = takePicture;
+      
+      return () => {
+        console.log('Cleaning up global camera capture function');
+        (global as any).cameraCapture = null;
+      };
+    }, [takePicture])
+  );
+
+
   const retakePicture = () => {
     // Animate preview out
     Animated.timing(previewOpacity, {
@@ -440,7 +443,7 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
     }
 
     // Navigate to PostUploadScreen with the captured photo
-    (navigation as any).navigate('PostUpload', {
+    navigation.navigate('PostUpload', {
       photoUri: capturedPhoto,
       photoOrientation: photoOrientation
     });
