@@ -123,3 +123,37 @@ screenshots/
 
 # WebStorm
 .idea/
+
+# Firebase Configuration Files (CRITICAL SECURITY)
+google-services.json
+GoogleService-Info.plist
+
+# Environment Variables & API Keys
+.env
+.env.*
+!.env.example
+*.env
+
+# Firebase Service Account Keys
+*-firebase-adminsdk-*.json
+service-account-*.json
+
+# Apple Development
+*.p12
+*.mobileprovision
+*.certSigningRequest
+
+# Android Keystore
+*.keystore
+*.jks
+!debug.keystore
+
+# Expo Secrets
+.expo/settings.json
+
+# Additional Security Files
+*.pem
+*.key
+*secret*
+*Secret*
+*SECRET*
