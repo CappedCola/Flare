@@ -148,14 +148,28 @@ export const createPost = async (photoUri: string, caption: string = '', userId:
     console.log('Post creation completed successfully!');
     
   } catch (error: any) {
-    console.error('Error creating post:', error);
-    console.error('Error details:', JSON.stringify(error, null, 2));
+    console.error('❌ Error creating post:', error);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    
+    // Enhanced debugging for permission errors
+    if (error.code === 'firestore/permission-denied') {
+      console.error('🚫 PERMISSION DENIED during post creation!');
+      console.error('🔐 Current user ID:', userId);
+      console.error('🔐 Auth user ID:', auth().currentUser?.uid);
+      console.error('📝 Post data being created:', {
+        userId,
+        photoUrl: 'URL_REDACTED',
+        caption,
+        isUserIdMatch: auth().currentUser?.uid === userId
+      });
+      throw new Error('Permission denied. Security rules may not be deployed correctly.');
+    }
     
     // Provide more specific error messages
     if (error.code === 'storage/file-not-found') {
       throw new Error('Photo file not found. Please try taking the photo again.');
-    } else if (error.code === 'firestore/permission-denied') {
-      throw new Error('Permission denied. Please check your authentication.');
     } else if (error.message?.includes('undefined')) {
       throw new Error('Invalid data format. Please try again.');
     } else {
@@ -274,6 +288,45 @@ export const getUserById = async (userId: string): Promise<User | null> => {
 
 export const getUserPhotos = async (userId: string, limit: number = 12): Promise<string[]> => {
   try {
+    console.log('🔍 getUserPhotos DEBUG INFO:');
+    console.log('  - userId:', userId);
+    console.log('  - userId type:', typeof userId);
+    console.log('  - userId length:', userId?.length);
+    console.log('  - limit:', limit);
+    console.log('  - current auth user:', auth().currentUser?.uid);
+    console.log('  - query collection: posts');
+    console.log('  - query where: userId == ' + userId);
+    console.log('  - query orderBy: createdAt desc');
+    console.log('  - query limit:', limit);
+    
+    // First try: Test query WITHOUT orderBy to isolate the issue
+    console.log('🧪 TESTING: Trying query WITHOUT orderBy first...');
+    try {
+      const testSnapshot = await firestore()
+        .collection('posts')
+        .where('userId', '==', userId)
+        .limit(limit)
+        .get();
+      console.log('✅ Query WITHOUT orderBy succeeded! Found', testSnapshot.docs.length, 'docs');
+    } catch (testError: any) {
+      console.error('❌ Even query WITHOUT orderBy failed:', testError.code, testError.message);
+    }
+    
+    // Second try: Compare with working feed query structure
+    console.log('🧪 TESTING: Trying feed query structure (no where clause)...');
+    try {
+      const feedSnapshot = await firestore()
+        .collection('posts')
+        .orderBy('createdAt', 'desc')
+        .limit(limit)
+        .get();
+      console.log('✅ Feed-style query succeeded! Found', feedSnapshot.docs.length, 'total posts');
+    } catch (feedError: any) {
+      console.error('❌ Feed-style query failed:', feedError.code, feedError.message);
+    }
+    
+    // Third try: Original query WITH where + orderBy
+    console.log('🧪 TESTING: Now trying original query (where + orderBy)...');
     const postsSnapshot = await firestore()
       .collection('posts')
       .where('userId', '==', userId)
@@ -281,9 +334,41 @@ export const getUserPhotos = async (userId: string, limit: number = 12): Promise
       .limit(limit)
       .get();
     
+    console.log('✅ Query succeeded! Found', postsSnapshot.docs.length, 'user photos');
     return postsSnapshot.docs.map(doc => doc.data().photoUrl);
   } catch (error: any) {
-    console.error('Error getting user photos:', error);
+    console.error('❌ getUserPhotos ERROR DETAILS:');
+    console.error('  - Error code:', error.code);
+    console.error('  - Error message:', error.message);
+    console.error('  - Full error:', error);
+    
+    // If index is still building, fall back to getting all posts and filtering client-side
+    if (error.code === 'firestore/failed-precondition') {
+      console.log('🔄 Index still building, using fallback method...');
+      try {
+        const allPostsSnapshot = await firestore()
+          .collection('posts')
+          .limit(100) // Get reasonable amount to filter
+          .get();
+        
+        const userPosts = allPostsSnapshot.docs
+          .filter(doc => doc.data().userId === userId)
+          .sort((a, b) => {
+            const aTime = a.data().createdAt?.toDate() || new Date(0);
+            const bTime = b.data().createdAt?.toDate() || new Date(0);
+            return bTime.getTime() - aTime.getTime();
+          })
+          .slice(0, limit)
+          .map(doc => doc.data().photoUrl);
+        
+        console.log(`📸 Found ${userPosts.length} user photos using fallback`);
+        return userPosts;
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+        return [];
+      }
+    }
+    
     return [];
   }
 };
@@ -385,12 +470,16 @@ export const uploadPhoto = async (photoUri: string, userId: string): Promise<Pho
 
 // Real-time listeners
 export const subscribeToPosts = (callback: (posts: Post[]) => void, onError?: (error: Error) => void) => {
+  console.log('🔄 Setting up posts subscription for user:', auth().currentUser?.uid);
+  
   return firestore()
     .collection('posts')
     .orderBy('createdAt', 'desc')
     .limit(20)
     .onSnapshot(
       (snapshot) => {
+        console.log(`📥 Feed loaded: ${snapshot.docs.length} posts`);
+        
         const posts: Post[] = snapshot.docs.map(doc => {
           const data = doc.data();
           return {
@@ -411,10 +500,18 @@ export const subscribeToPosts = (callback: (posts: Post[]) => void, onError?: (e
             timeAgo: formatTimeAgo(data.createdAt?.toDate() || new Date()),
           };
         });
+        
         callback(posts);
       },
       (error) => {
-        console.error('Error in posts subscription:', error);
+        console.error('❌ Error in posts subscription:', error);
+        console.error('❌ Error code:', error.code);
+        
+        if (error.code === 'permission-denied') {
+          console.error('🚫 PERMISSION DENIED: Check Firebase security rules!');
+          console.error('🔐 Current user:', auth().currentUser?.uid || 'Not authenticated');
+        }
+        
         if (onError) onError(new Error('Failed to subscribe to posts'));
       }
     );
