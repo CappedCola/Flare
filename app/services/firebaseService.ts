@@ -72,39 +72,72 @@ export const getCurrentUser = async (): Promise<User | null> => {
 // Post Services
 export const createPost = async (photoUri: string, caption: string = '', userId: string): Promise<void> => {
   try {
+    // Validate inputs
+    if (!photoUri || !userId) {
+      throw new Error('Photo URI and User ID are required');
+    }
+    
+    console.log('Starting photo upload for user:', userId);
+    console.log('Photo path:', photoUri);
+    
+    // Handle file URI - remove file:// prefix if present
+    const cleanPhotoPath = photoUri.startsWith('file://') ? photoUri.replace('file://', '') : photoUri;
+    console.log('Clean photo path for Firebase:', cleanPhotoPath);
+    
     // Upload photo to Firebase Storage
     const filename = `photos/${userId}/${Date.now()}.jpg`;
     const reference = storage().ref(filename);
     
     // Upload the file
-    await reference.putFile(photoUri);
+    console.log('Uploading photo to Firebase Storage...');
+    await reference.putFile(cleanPhotoPath);
     
     // Get download URL
+    console.log('Getting download URL...');
     const photoUrl = await reference.getDownloadURL();
+    console.log('Photo uploaded successfully, URL:', photoUrl);
     
     // Get user data for username
+    console.log('Fetching user data...');
     const userDoc = await firestore().collection('users').doc(userId).get();
+    
+    if (!userDoc.exists) {
+      throw new Error('User not found in database');
+    }
+    
     const userData = userDoc.data();
     
-    // Create post document
-    const postData = {
+    // Create post document (only include fields with actual values)
+    const postData: any = {
       userId,
       username: userData?.username || 'Unknown',
-      userAvatar: userData?.avatar || undefined,
       photoUrl,
       caption,
       streakDay: userData?.currentStreak || 1,
-      location: undefined, // TODO: Add location if needed
       createdAt: firestore.FieldValue.serverTimestamp(),
       likes: [],
       comments: [],
       isVisible: true,
     };
     
+    // Only add optional fields if they have values
+    if (userData?.avatar) {
+      postData.userAvatar = userData.avatar;
+    }
+    
+    // Location will be added later when location feature is implemented
+    // if (location) {
+    //   postData.location = location;
+    // }
+    
+    console.log('Creating post document with data:', JSON.stringify(postData, null, 2));
+    
     // Add post to Firestore
-    await firestore().collection('posts').add(postData);
+    const docRef = await firestore().collection('posts').add(postData);
+    console.log('Post created successfully with ID:', docRef.id);
     
     // Update user's total photos and streak
+    console.log('Updating user stats...');
     await firestore().collection('users').doc(userId).update({
       totalPhotos: firestore.FieldValue.increment(1),
       currentStreak: firestore.FieldValue.increment(1),
@@ -112,9 +145,22 @@ export const createPost = async (photoUri: string, caption: string = '', userId:
       lastActiveAt: firestore.FieldValue.serverTimestamp(),
     });
     
+    console.log('Post creation completed successfully!');
+    
   } catch (error: any) {
     console.error('Error creating post:', error);
-    throw new Error('Failed to create post');
+    console.error('Error details:', JSON.stringify(error, null, 2));
+    
+    // Provide more specific error messages
+    if (error.code === 'storage/file-not-found') {
+      throw new Error('Photo file not found. Please try taking the photo again.');
+    } else if (error.code === 'firestore/permission-denied') {
+      throw new Error('Permission denied. Please check your authentication.');
+    } else if (error.message?.includes('undefined')) {
+      throw new Error('Invalid data format. Please try again.');
+    } else {
+      throw new Error(`Failed to create post: ${error.message || 'Unknown error'}`);
+    }
   }
 };
 

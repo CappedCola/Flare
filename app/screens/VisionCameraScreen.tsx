@@ -447,7 +447,7 @@ export const VisionCameraScreen = () => {
       setUploadError(null);
       
       // Create post with captured photo
-      await createPost(`file://${capturedPhoto}`, '', user.id);
+      await createPost(capturedPhoto, '', user.id);
       
       console.log('Post created successfully!');
       
