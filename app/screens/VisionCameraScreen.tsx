@@ -3,15 +3,14 @@ import { StyleSheet, View, StatusBar, Text, Image, TouchableOpacity, Animated, L
 import { useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, useCameraDevice } from 'react-native-vision-camera';
-import { RotateCcw, Check, X, Settings } from 'lucide-react-native';
-import { createPost } from '../services/firebaseService';
+import { RotateCcw, Check, Settings } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 type LensType = 'ultra-wide' | 'standard';
 
-export const VisionCameraScreen = () => {
+export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
   console.log('🔵 VisionCameraScreen component initializing...');
   const theme = useTheme();
   const { user, isAuthenticated } = useAuth();
@@ -28,8 +27,6 @@ export const VisionCameraScreen = () => {
   const [visionCameraFailed, setVisionCameraFailed] = useState(false);
   const [isPollingPermissions, setIsPollingPermissions] = useState(false);
   const [hasTriedPermissionRequest, setHasTriedPermissionRequest] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   
   console.log('🔵 VisionCameraScreen state initialized');
   const cameraRef = useRef<Camera>(null);
@@ -436,29 +433,17 @@ export const VisionCameraScreen = () => {
   };
 
   const confirmPicture = async () => {
-    if (!capturedPhoto || !user) {
-      console.error('No photo captured or user not authenticated');
+    if (!capturedPhoto) {
+      console.error('No photo captured');
       retakePicture();
       return;
     }
 
-    try {
-      setIsUploading(true);
-      setUploadError(null);
-      
-      // Create post with captured photo
-      await createPost(capturedPhoto, '', user.id);
-      
-      console.log('Post created successfully!');
-      
-      // Close preview after successful upload
-      retakePicture();
-    } catch (error) {
-      console.error('Error creating post:', error);
-      setUploadError('Failed to upload photo. Please try again.');
-    } finally {
-      setIsUploading(false);
-    }
+    // Navigate to PostUploadScreen with the captured photo
+    (navigation as any).navigate('PostUpload', {
+      photoUri: capturedPhoto,
+      photoOrientation: photoOrientation
+    });
   };
 
   // Handle lens switching
@@ -688,32 +673,13 @@ export const VisionCameraScreen = () => {
               <TouchableOpacity 
                 style={[
                   styles.modernActionButton, 
-                  photoOrientation === 'landscape' ? styles.confirmButtonCornerLandscape : styles.confirmButtonCorner,
-                  isUploading && styles.disabledButton
+                  photoOrientation === 'landscape' ? styles.confirmButtonCornerLandscape : styles.confirmButtonCorner
                 ]}
                 onPress={confirmPicture}
-                activeOpacity={isUploading ? 1 : 0.7}
-                disabled={isUploading}
+                activeOpacity={0.7}
               >
-                {isUploading ? (
-                  <Text style={styles.uploadingText}>...</Text>
-                ) : (
-                  <Check size={28} color="#FFFFFF" />
-                )}
+                <Check size={28} color="#FFFFFF" />
               </TouchableOpacity>
-              
-              {/* Upload Error Message */}
-              {uploadError && (
-                <View style={[
-                  styles.errorMessage,
-                  photoOrientation === 'landscape' && styles.errorMessageLandscape
-                ]}>
-                  <Text style={styles.errorText}>{uploadError}</Text>
-                  <TouchableOpacity onPress={() => setUploadError(null)}>
-                    <X size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              )}
             </Animated.View>
           )}
         </View>

@@ -159,8 +159,10 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 			<TouchableOpacity
 				style={[
 					styles.plusButton,
-					isOnCameraTab && {
+					isOnCameraTab ? {
 						backgroundColor: theme["color-primary-500"],
+					} : {
+						backgroundColor: theme["color-basic-600"],
 					}
 				]}
 				onPress={handleCameraButtonPress}
