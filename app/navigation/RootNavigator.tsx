@@ -7,6 +7,7 @@ import { BottomTabs } from './BottomTabs';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { SignUpScreen } from '../screens/SignUpScreen';
 import { SignInScreen } from '../screens/SignInScreen';
+import { PostUploadScreen } from '../screens/PostUploadScreen';
 import { useAuth } from '../context/AuthContext';
 
 const AuthStack = createNativeStackNavigator();
@@ -31,6 +32,14 @@ const MainNavigator = () => {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="Main" component={BottomTabs} />
+      <MainStack.Screen 
+        name="PostUpload" 
+        component={PostUploadScreen}
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom'
+        }}
+      />
     </MainStack.Navigator>
   );
 };

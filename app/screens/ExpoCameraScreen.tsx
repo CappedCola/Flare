@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RotateCcw, Check } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
-export const ExpoCameraScreen = () => {
+export const ExpoCameraScreen = ({ navigation }: { navigation: any }) => {
   const theme = useTheme();
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -51,8 +51,17 @@ export const ExpoCameraScreen = () => {
   };
 
   const confirmPicture = () => {
-    // For now, just close preview
-    retakePicture();
+    if (!capturedPhoto) {
+      console.error('No photo captured');
+      retakePicture();
+      return;
+    }
+
+    // Navigate to PostUploadScreen with the captured photo
+    navigation.navigate('PostUpload', {
+      photoUri: capturedPhoto,
+      photoOrientation: 'portrait' // Expo camera default
+    });
   };
 
   // Expose takePicture function to be called from navigation
