@@ -93,6 +93,7 @@ export const ProfileScreen = () => {
   const [error, setError] = useState<string | null>(null);
 
   const handleMenuPress = (item: string) => {
+    console.log(`Pressed ${item}`);
   };
 
   // Load user photos
@@ -107,7 +108,7 @@ export const ProfileScreen = () => {
       setPhotos(userPhotos);
     } catch (err) {
       setError('Failed to load profile data. Please try again.');
-      if (__DEV__) console.error('Error loading user data:', err);
+      console.error('Error loading user data:', err);
     } finally {
       setLoading(false);
     }

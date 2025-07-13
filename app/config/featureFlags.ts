@@ -8,10 +8,7 @@ export const FEATURE_FLAGS = {
 // Helper function to check if we're in a development build
 export const isUsingVisionCamera = () => FEATURE_FLAGS.USE_VISION_CAMERA;
 
-// Helper to log current environment (disabled for cleaner console)
+// Helper to log current environment
 export const logCameraEnvironment = () => {
-  // Logging disabled to reduce console noise
-  // if (__DEV__) {
-  //   console.log(`Camera Environment: ${FEATURE_FLAGS.USE_VISION_CAMERA ? 'Vision Camera (Development Build)' : 'Expo Camera (Expo Go)'}`);
-  // }
+  console.log(`Camera Environment: ${FEATURE_FLAGS.USE_VISION_CAMERA ? 'Vision Camera (Development Build)' : 'Expo Camera (Expo Go)'}`);
 };

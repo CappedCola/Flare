@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@ui-kitten/components';
 import { AppleIcon, MailIcon, UserIcon } from 'lucide-react-native';
@@ -20,10 +20,12 @@ export const WelcomeScreen = () => {
 
   const handleAppleSignUp = () => {
     // TODO: Implement Apple Sign In
+    console.log('Apple Sign Up - Coming Soon');
   };
 
   const handleGoogleSignUp = () => {
     // TODO: Implement Google Sign In
+    console.log('Google Sign Up - Coming Soon');
   };
 
   return (
@@ -31,11 +33,6 @@ export const WelcomeScreen = () => {
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
-          <Image 
-            source={require('../assets/images/app-logo.png')} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
           <Text style={[styles.title, { color: theme['text-basic-color'] }]}>
             Welcome to Flare
           </Text>
@@ -109,11 +106,6 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 60,
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    marginBottom: 24,
   },
   title: {
     fontSize: 32,
