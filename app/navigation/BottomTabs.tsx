@@ -87,11 +87,8 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 		if (isOnCameraTab) {
 			// Trigger photo capture using global reference with error handling
 			try {
-				console.log('Camera button pressed - attempting capture');
 				if ((global as any).cameraCapture) {
-					console.log('Camera capture function found, executing...');
 					await (global as any).cameraCapture();
-					console.log('Camera capture completed successfully');
 				} else {
 					console.warn('Camera capture function not available');
 					// Could show user-friendly message here
@@ -102,7 +99,6 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 				// Could show error toast to user
 			}
 		} else {
-			console.log('Navigating to camera tab');
 			navigation.navigate("Camera");
 		}
 	};

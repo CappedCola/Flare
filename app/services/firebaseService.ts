@@ -1,12 +1,38 @@
 import { User, Post, Comment, Streak, PhotoMetadata } from '../types';
 import { auth, firestore, storage } from '../config/firebase';
 import { formatTimeAgo } from '../utils/helpers';
+// React Native Firebase v22+ modular API imports
+import { 
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from '@react-native-firebase/auth';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  orderBy, 
+  limit,
+  onSnapshot,
+  serverTimestamp,
+  arrayUnion,
+  arrayRemove,
+  increment
+} from '@react-native-firebase/firestore';
 
 // Authentication Services
 export const signUp = async (email: string, password: string, username: string): Promise<User> => {
   try {
-    // Create user account
-    const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+    // Create user account using v22 modular API
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
     
     // Create user document in Firestore
@@ -23,7 +49,7 @@ export const signUp = async (email: string, password: string, username: string):
       lastActiveAt: new Date(),
     };
     
-    await firestore().collection('users').doc(firebaseUser.uid).set(newUser);
+    await setDoc(doc(firestore, 'users', firebaseUser.uid), newUser);
     return newUser;
   } catch (error: any) {
     throw new Error(error.message);
@@ -32,10 +58,11 @@ export const signUp = async (email: string, password: string, username: string):
 
 export const signIn = async (email: string, password: string): Promise<User> => {
   try {
-    const userCredential = await auth().signInWithEmailAndPassword(email, password);
-    const userDoc = await firestore().collection('users').doc(userCredential.user.uid).get();
+    // Sign in using v22 modular API
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const userDoc = await getDoc(doc(firestore, 'users', userCredential.user.uid));
     
-    if (userDoc.exists) {
+    if (userDoc.exists()) {
       return { id: userCredential.user.uid, ...userDoc.data() } as User;
     } else {
       throw new Error('User data not found');
@@ -45,9 +72,10 @@ export const signIn = async (email: string, password: string): Promise<User> => 
   }
 };
 
-export const signOut = async (): Promise<void> => {
+export const signOutUser = async (): Promise<void> => {
   try {
-    await auth().signOut();
+    // Sign out using v22 modular API
+    await signOut(auth);
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -55,16 +83,16 @@ export const signOut = async (): Promise<void> => {
 
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    const currentUser = auth().currentUser;
+    const currentUser = auth.currentUser;
     if (!currentUser) return null;
     
-    const userDoc = await firestore().collection('users').doc(currentUser.uid).get();
-    if (userDoc.exists) {
+    const userDoc = await getDoc(doc(firestore, 'users', currentUser.uid));
+    if (userDoc.exists()) {
       return { id: currentUser.uid, ...userDoc.data() } as User;
     }
     return null;
   } catch (error: any) {
-    console.error('Error getting current user:', error);
+    if (__DEV__) console.error('Error getting current user:', error);
     return null;
   }
 };
@@ -77,31 +105,21 @@ export const createPost = async (photoUri: string, caption: string = '', userId:
       throw new Error('Photo URI and User ID are required');
     }
     
-    console.log('Starting photo upload for user:', userId);
-    console.log('Photo path:', photoUri);
-    
     // Handle file URI - remove file:// prefix if present
     const cleanPhotoPath = photoUri.startsWith('file://') ? photoUri.replace('file://', '') : photoUri;
-    console.log('Clean photo path for Firebase:', cleanPhotoPath);
     
-    // Upload photo to Firebase Storage
+    // Upload photo to Firebase Storage (v22 - storage still uses instance methods)
     const filename = `photos/${userId}/${Date.now()}.jpg`;
-    const reference = storage().ref(filename);
-    
-    // Upload the file
-    console.log('Uploading photo to Firebase Storage...');
-    await reference.putFile(cleanPhotoPath);
+    const storageReference = storage.ref(filename);
+    await storageReference.putFile(cleanPhotoPath);
     
     // Get download URL
-    console.log('Getting download URL...');
-    const photoUrl = await reference.getDownloadURL();
-    console.log('Photo uploaded successfully, URL:', photoUrl);
+    const photoUrl = await storageReference.getDownloadURL();
     
     // Get user data for username
-    console.log('Fetching user data...');
-    const userDoc = await firestore().collection('users').doc(userId).get();
+    const userDoc = await getDoc(doc(firestore, 'users', userId));
     
-    if (!userDoc.exists) {
+    if (!userDoc.exists()) {
       throw new Error('User not found in database');
     }
     
@@ -114,7 +132,7 @@ export const createPost = async (photoUri: string, caption: string = '', userId:
       photoUrl,
       caption,
       streakDay: userData?.currentStreak || 1,
-      createdAt: firestore.FieldValue.serverTimestamp(),
+      createdAt: serverTimestamp(),
       likes: [],
       comments: [],
       isVisible: true,
@@ -130,40 +148,32 @@ export const createPost = async (photoUri: string, caption: string = '', userId:
     //   postData.location = location;
     // }
     
-    console.log('Creating post document with data:', JSON.stringify(postData, null, 2));
-    
     // Add post to Firestore
-    const docRef = await firestore().collection('posts').add(postData);
-    console.log('Post created successfully with ID:', docRef.id);
+    const docRef = await addDoc(collection(firestore, 'posts'), postData);
     
     // Update user's total photos and streak
-    console.log('Updating user stats...');
-    await firestore().collection('users').doc(userId).update({
-      totalPhotos: firestore.FieldValue.increment(1),
-      currentStreak: firestore.FieldValue.increment(1),
-      lastPhotoDate: firestore.FieldValue.serverTimestamp(),
-      lastActiveAt: firestore.FieldValue.serverTimestamp(),
+    await updateDoc(doc(firestore, 'users', userId), {
+      totalPhotos: increment(1),
+      currentStreak: increment(1),
+      lastPhotoDate: serverTimestamp(),
+      lastActiveAt: serverTimestamp(),
     });
     
-    console.log('Post creation completed successfully!');
     
   } catch (error: any) {
-    console.error('❌ Error creating post:', error);
-    console.error('❌ Error code:', error.code);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    if (__DEV__) {
+      console.error('Error creating post:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+    }
     
     // Enhanced debugging for permission errors
     if (error.code === 'firestore/permission-denied') {
-      console.error('🚫 PERMISSION DENIED during post creation!');
-      console.error('🔐 Current user ID:', userId);
-      console.error('🔐 Auth user ID:', auth().currentUser?.uid);
-      console.error('📝 Post data being created:', {
-        userId,
-        photoUrl: 'URL_REDACTED',
-        caption,
-        isUserIdMatch: auth().currentUser?.uid === userId
-      });
+      if (__DEV__) {
+        console.error('PERMISSION DENIED during post creation!');
+        console.error('Current user ID:', userId);
+        console.error('Auth user ID:', auth.currentUser?.uid);
+      }
       throw new Error('Permission denied. Security rules may not be deployed correctly.');
     }
     
@@ -178,14 +188,15 @@ export const createPost = async (photoUri: string, caption: string = '', userId:
   }
 };
 
-export const getFeedPosts = async (userId?: string, limit: number = 20): Promise<Post[]> => {
+export const getFeedPosts = async (userId?: string, limitCount: number = 20): Promise<Post[]> => {
   try {
-    let query = firestore()
-      .collection('posts')
-      .orderBy('createdAt', 'desc')
-      .limit(limit);
+    const q = query(
+      collection(firestore, 'posts'),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
     
-    const snapshot = await query.get();
+    const snapshot = await getDocs(q);
     
     const posts: Post[] = snapshot.docs.map(doc => {
       const data = doc.data();
@@ -210,146 +221,185 @@ export const getFeedPosts = async (userId?: string, limit: number = 20): Promise
     
     return posts;
   } catch (error: any) {
-    console.error('Error getting feed posts:', error);
+    if (__DEV__) console.error('Error getting feed posts:', error);
     throw new Error('Failed to load posts');
   }
 };
 
 export const likePost = async (postId: string, userId: string): Promise<void> => {
   try {
-    const postRef = firestore().collection('posts').doc(postId);
-    const postDoc = await postRef.get();
+    const postRef = doc(firestore, 'posts', postId);
+    const postDoc = await getDoc(postRef);
     
-    if (postDoc.exists) {
-      const data = postDoc.data();
-      const likes = data?.likes || [];
-      const isLiked = likes.includes(userId);
-      
-      if (isLiked) {
-        // Unlike post
-        await postRef.update({
-          likes: firestore.FieldValue.arrayRemove(userId),
-        });
-      } else {
-        // Like post
-        await postRef.update({
-          likes: firestore.FieldValue.arrayUnion(userId),
-        });
-      }
+    if (!postDoc.exists()) {
+      throw new Error('Post not found');
+    }
+    
+    const data = postDoc.data();
+    const likes = data?.likes || [];
+    const isLiked = likes.includes(userId);
+    
+    if (isLiked) {
+      // Unlike post
+      await updateDoc(postRef, {
+        likes: arrayRemove(userId),
+      });
+    } else {
+      // Like post
+      await updateDoc(postRef, {
+        likes: arrayUnion(userId),
+      });
     }
   } catch (error: any) {
-    console.error('Error liking post:', error);
-    throw new Error('Failed to like post');
+    if (__DEV__) console.error('Error liking post:', error);
+    
+    // Provide specific error messages for different failure types
+    if (error.code === 'firestore/permission-denied') {
+      throw new Error('Permission denied. Please make sure you are signed in and try again.');
+    } else if (error.code === 'firestore/not-found') {
+      throw new Error('This post no longer exists.');
+    } else if (error.code === 'firestore/offline') {
+      throw new Error('No internet connection. Please check your network and try again.');
+    } else if (error.message === 'Post not found') {
+      throw new Error('This post no longer exists.');
+    } else {
+      throw new Error(`Failed to like post: ${error.message || 'Unknown error'}`);
+    }
   }
 };
 
 export const addComment = async (postId: string, userId: string, text: string): Promise<Comment> => {
   try {
-    // Get user data
-    const userDoc = await firestore().collection('users').doc(userId).get();
-    const userData = userDoc.data();
+    if (__DEV__) console.log('🔍 [DEBUG] Starting addComment:', { postId, userId, textLength: text.length });
     
-    const comment: Comment = {
-      id: firestore().collection('temp').doc().id, // Generate ID
+    // Validate inputs
+    if (!postId || !userId || !text.trim()) {
+      if (__DEV__) console.error('❌ [ERROR] Invalid comment data:', { postId, userId, text });
+      throw new Error('Invalid comment data');
+    }
+
+    if (__DEV__) console.log('✅ [DEBUG] Input validation passed');
+
+    // Check if post exists
+    const postRef = doc(firestore, 'posts', postId);
+    const postDoc = await getDoc(postRef);
+    
+    if (!postDoc.exists()) {
+      if (__DEV__) console.error('❌ [ERROR] Post not found:', postId);
+      throw new Error('Post not found');
+    }
+
+    if (__DEV__) console.log('✅ [DEBUG] Post exists');
+
+    // Get user data
+    const userDoc = await getDoc(doc(firestore, 'users', userId));
+    if (!userDoc.exists()) {
+      if (__DEV__) console.error('❌ [ERROR] User not found:', userId);
+      throw new Error('User not found');
+    }
+    
+    const userData = userDoc.data();
+    if (__DEV__) console.log('✅ [DEBUG] User data retrieved:', { username: userData?.username, hasAvatar: !!userData?.avatar });
+    
+    // Create comment object with proper types (NO serverTimestamp in arrayUnion!)
+    // IMPORTANT: Firebase arrayUnion cannot accept objects with undefined values
+    // We must conditionally build the object to completely omit undefined fields
+    const currentTime = new Date();
+    
+    // Build base comment object with required fields
+    const comment: any = {
+      id: doc(collection(firestore, 'temp')).id, // Generate unique ID
       postId,
       userId,
       username: userData?.username || 'Unknown',
-      userAvatar: userData?.avatar,
-      text,
-      createdAt: new Date(),
+      text: text.trim(),
+      createdAt: currentTime, // Use regular Date object to avoid serverTimestamp in arrayUnion
       likes: [],
     };
     
-    // Add comment to post
-    await firestore().collection('posts').doc(postId).update({
-      comments: firestore.FieldValue.arrayUnion(comment),
+    // Only add userAvatar field if the user actually has an avatar
+    // This completely omits the field rather than setting it to undefined
+    if (userData?.avatar) {
+      comment.userAvatar = userData.avatar;
+      if (__DEV__) console.log('✅ [DEBUG] User has avatar, adding to comment:', userData.avatar);
+    } else {
+      if (__DEV__) console.log('ℹ️ [DEBUG] User has no avatar, omitting userAvatar field');
+    }
+    
+    if (__DEV__) console.log('✅ [DEBUG] Comment object created:', { 
+      id: comment.id, 
+      username: comment.username, 
+      hasAvatar: !!comment.userAvatar,
+      fields: Object.keys(comment),
+      timestamp: comment.createdAt.toISOString()
     });
     
-    return comment;
+    // Add comment to post using arrayUnion for atomic operation
+    if (__DEV__) console.log('🔄 [DEBUG] Adding comment to Firestore with fields:', Object.keys(comment));
+    await updateDoc(postRef, {
+      comments: arrayUnion(comment),
+    });
+    
+    if (__DEV__) console.log('✅ [DEBUG] Comment successfully added to Firestore');
+    
+    // Return properly typed comment for UI
+    return comment as Comment;
   } catch (error: any) {
-    console.error('Error adding comment:', error);
-    throw new Error('Failed to add comment');
+    if (__DEV__) {
+      console.error('💥 [CRASH] Error adding comment:', error);
+      console.error('💥 [CRASH] Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack?.split('\n').slice(0, 5).join('\n')
+      });
+    }
+    
+    // Provide specific error messages
+    if (error.code === 'firestore/permission-denied') {
+      throw new Error('Permission denied. Please make sure you are signed in.');
+    } else if (error.code === 'firestore/not-found') {
+      throw new Error('This post no longer exists.');
+    } else if (error.code === 'firestore/offline') {
+      throw new Error('No internet connection. Please check your network and try again.');
+    } else if (error.message === 'Post not found' || error.message === 'User not found' || error.message === 'Invalid comment data') {
+      throw new Error(error.message);
+    } else {
+      throw new Error(`Failed to add comment: ${error.message || 'Unknown error'}`);
+    }
   }
 };
 
 // User Services
 export const getUserById = async (userId: string): Promise<User | null> => {
   try {
-    const userDoc = await firestore().collection('users').doc(userId).get();
-    if (userDoc.exists) {
+    const userDoc = await getDoc(doc(firestore, 'users', userId));
+    if (userDoc.exists()) {
       return { id: userId, ...userDoc.data() } as User;
     }
     return null;
   } catch (error: any) {
-    console.error('Error getting user:', error);
+    if (__DEV__) console.error('Error getting user:', error);
     return null;
   }
 };
 
-export const getUserPhotos = async (userId: string, limit: number = 12): Promise<string[]> => {
+export const getUserPhotos = async (userId: string, limitCount: number = 12): Promise<string[]> => {
   try {
-    console.log('🔍 getUserPhotos DEBUG INFO:');
-    console.log('  - userId:', userId);
-    console.log('  - userId type:', typeof userId);
-    console.log('  - userId length:', userId?.length);
-    console.log('  - limit:', limit);
-    console.log('  - current auth user:', auth().currentUser?.uid);
-    console.log('  - query collection: posts');
-    console.log('  - query where: userId == ' + userId);
-    console.log('  - query orderBy: createdAt desc');
-    console.log('  - query limit:', limit);
+    const q = query(
+      collection(firestore, 'posts'),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    const postsSnapshot = await getDocs(q);
     
-    // First try: Test query WITHOUT orderBy to isolate the issue
-    console.log('🧪 TESTING: Trying query WITHOUT orderBy first...');
-    try {
-      const testSnapshot = await firestore()
-        .collection('posts')
-        .where('userId', '==', userId)
-        .limit(limit)
-        .get();
-      console.log('✅ Query WITHOUT orderBy succeeded! Found', testSnapshot.docs.length, 'docs');
-    } catch (testError: any) {
-      console.error('❌ Even query WITHOUT orderBy failed:', testError.code, testError.message);
-    }
-    
-    // Second try: Compare with working feed query structure
-    console.log('🧪 TESTING: Trying feed query structure (no where clause)...');
-    try {
-      const feedSnapshot = await firestore()
-        .collection('posts')
-        .orderBy('createdAt', 'desc')
-        .limit(limit)
-        .get();
-      console.log('✅ Feed-style query succeeded! Found', feedSnapshot.docs.length, 'total posts');
-    } catch (feedError: any) {
-      console.error('❌ Feed-style query failed:', feedError.code, feedError.message);
-    }
-    
-    // Third try: Original query WITH where + orderBy
-    console.log('🧪 TESTING: Now trying original query (where + orderBy)...');
-    const postsSnapshot = await firestore()
-      .collection('posts')
-      .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
-      .limit(limit)
-      .get();
-    
-    console.log('✅ Query succeeded! Found', postsSnapshot.docs.length, 'user photos');
     return postsSnapshot.docs.map(doc => doc.data().photoUrl);
   } catch (error: any) {
-    console.error('❌ getUserPhotos ERROR DETAILS:');
-    console.error('  - Error code:', error.code);
-    console.error('  - Error message:', error.message);
-    console.error('  - Full error:', error);
-    
     // If index is still building, fall back to getting all posts and filtering client-side
     if (error.code === 'firestore/failed-precondition') {
-      console.log('🔄 Index still building, using fallback method...');
       try {
-        const allPostsSnapshot = await firestore()
-          .collection('posts')
-          .limit(100) // Get reasonable amount to filter
-          .get();
+        const allPostsQuery = query(collection(firestore, 'posts'), limit(100));
+        const allPostsSnapshot = await getDocs(allPostsQuery);
         
         const userPosts = allPostsSnapshot.docs
           .filter(doc => doc.data().userId === userId)
@@ -358,50 +408,51 @@ export const getUserPhotos = async (userId: string, limit: number = 12): Promise
             const bTime = b.data().createdAt?.toDate() || new Date(0);
             return bTime.getTime() - aTime.getTime();
           })
-          .slice(0, limit)
+          .slice(0, limitCount)
           .map(doc => doc.data().photoUrl);
         
-        console.log(`📸 Found ${userPosts.length} user photos using fallback`);
         return userPosts;
       } catch (fallbackError) {
-        console.error('Fallback also failed:', fallbackError);
+        console.error('Fallback getUserPhotos failed:', fallbackError);
         return [];
       }
     }
     
+    console.error('Error getting user photos:', error);
     return [];
   }
 };
 
 export const updateUserProfile = async (userId: string, updates: Partial<User>): Promise<User> => {
   try {
-    await firestore().collection('users').doc(userId).update({
+    await updateDoc(doc(firestore, 'users', userId), {
       ...updates,
-      lastActiveAt: firestore.FieldValue.serverTimestamp(),
+      lastActiveAt: serverTimestamp(),
     });
     
-    const updatedDoc = await firestore().collection('users').doc(userId).get();
+    const updatedDoc = await getDoc(doc(firestore, 'users', userId));
     return { id: userId, ...updatedDoc.data() } as User;
   } catch (error: any) {
-    console.error('Error updating user profile:', error);
+    if (__DEV__) console.error('Error updating user profile:', error);
     throw new Error('Failed to update profile');
   }
 };
 
-export const searchUsers = async (query: string): Promise<User[]> => {
+export const searchUsers = async (searchQuery: string): Promise<User[]> => {
   try {
     // Note: Firestore doesn't support full-text search natively
     // This is a basic implementation - you might want to use Algolia or similar for production
-    const snapshot = await firestore()
-      .collection('users')
-      .where('username', '>=', query.toLowerCase())
-      .where('username', '<=', query.toLowerCase() + '\uf8ff')
-      .limit(10)
-      .get();
+    const q = query(
+      collection(firestore, 'users'),
+      where('username', '>=', searchQuery.toLowerCase()),
+      where('username', '<=', searchQuery.toLowerCase() + '\uf8ff'),
+      limit(10)
+    );
+    const snapshot = await getDocs(q);
     
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
   } catch (error: any) {
-    console.error('Error searching users:', error);
+    if (__DEV__) console.error('Error searching users:', error);
     return [];
   }
 };
@@ -409,21 +460,22 @@ export const searchUsers = async (query: string): Promise<User[]> => {
 // Streak Services
 export const getCurrentStreak = async (userId: string): Promise<Streak | null> => {
   try {
-    const streaksSnapshot = await firestore()
-      .collection('streaks')
-      .where('userId', '==', userId)
-      .where('isActive', '==', true)
-      .limit(1)
-      .get();
+    const q = query(
+      collection(firestore, 'streaks'),
+      where('userId', '==', userId),
+      where('isActive', '==', true),
+      limit(1)
+    );
+    const streaksSnapshot = await getDocs(q);
     
     if (!streaksSnapshot.empty) {
-      const doc = streaksSnapshot.docs[0];
-      return { id: doc.id, ...doc.data() } as Streak;
+      const docSnapshot = streaksSnapshot.docs[0];
+      return { id: docSnapshot.id, ...docSnapshot.data() } as Streak;
     }
     
     return null;
   } catch (error: any) {
-    console.error('Error getting current streak:', error);
+    if (__DEV__) console.error('Error getting current streak:', error);
     return null;
   }
 };
@@ -432,7 +484,8 @@ export const getCurrentStreak = async (userId: string): Promise<Streak | null> =
 export const uploadPhoto = async (photoUri: string, userId: string): Promise<PhotoMetadata> => {
   try {
     const filename = `photos/${userId}/${Date.now()}.jpg`;
-    const reference = storage().ref(filename);
+    // Use storage instance from v22 modular config
+    const reference = storage.ref(filename);
     
     // Upload file
     const task = reference.putFile(photoUri);
@@ -470,15 +523,14 @@ export const uploadPhoto = async (photoUri: string, userId: string): Promise<Pho
 
 // Real-time listeners
 export const subscribeToPosts = (callback: (posts: Post[]) => void, onError?: (error: Error) => void) => {
-  console.log('🔄 Setting up posts subscription for user:', auth().currentUser?.uid);
+  const q = query(
+    collection(firestore, 'posts'),
+    orderBy('createdAt', 'desc'),
+    limit(20)
+  );
   
-  return firestore()
-    .collection('posts')
-    .orderBy('createdAt', 'desc')
-    .limit(20)
-    .onSnapshot(
+  return onSnapshot(q,
       (snapshot) => {
-        console.log(`📥 Feed loaded: ${snapshot.docs.length} posts`);
         
         const posts: Post[] = snapshot.docs.map(doc => {
           const data = doc.data();
@@ -495,7 +547,13 @@ export const subscribeToPosts = (callback: (posts: Post[]) => void, onError?: (e
             location: data.location,
             createdAt: data.createdAt?.toDate() || new Date(),
             likes: data.likes || [],
-            comments: data.comments || [],
+            comments: (data.comments || []).map((comment: any) => ({
+              ...comment,
+              // Handle timestamp conversion for comments (now using regular Date objects)
+              createdAt: comment.createdAt?.toDate ? comment.createdAt.toDate() : 
+                        (comment.createdAt instanceof Date ? comment.createdAt : new Date(comment.createdAt)),
+              // Don't modify userAvatar - if it exists in Firestore, keep it; if not, it's already omitted
+            })),
             isVisible: data.isVisible ?? true,
             timeAgo: formatTimeAgo(data.createdAt?.toDate() || new Date()),
           };
@@ -504,12 +562,10 @@ export const subscribeToPosts = (callback: (posts: Post[]) => void, onError?: (e
         callback(posts);
       },
       (error) => {
-        console.error('❌ Error in posts subscription:', error);
-        console.error('❌ Error code:', error.code);
+        console.error('Error in posts subscription:', error);
         
         if (error.code === 'permission-denied') {
-          console.error('🚫 PERMISSION DENIED: Check Firebase security rules!');
-          console.error('🔐 Current user:', auth().currentUser?.uid || 'Not authenticated');
+          console.error('PERMISSION DENIED: Check Firebase security rules!');
         }
         
         if (onError) onError(new Error('Failed to subscribe to posts'));
@@ -518,22 +574,29 @@ export const subscribeToPosts = (callback: (posts: Post[]) => void, onError?: (e
 };
 
 export const subscribeToAuthState = (callback: (user: User | null) => void) => {
-  return auth().onAuthStateChanged(async (firebaseUser) => {
+  try {
+    // Auth state listener using v22 modular API
+    return onAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
       try {
-        const userDoc = await firestore().collection('users').doc(firebaseUser.uid).get();
-        if (userDoc.exists) {
+        const userDoc = await getDoc(doc(firestore, 'users', firebaseUser.uid));
+        if (userDoc.exists()) {
           const user = { id: firebaseUser.uid, ...userDoc.data() } as User;
           callback(user);
         } else {
           callback(null);
         }
       } catch (error) {
-        console.error('Error getting user data:', error);
+        if (__DEV__) console.error('Error getting user data:', error);
         callback(null);
       }
     } else {
       callback(null);
     }
-  });
+    });
+  } catch (error) {
+    if (__DEV__) console.error('Error setting up auth state listener:', error);
+    // Return a no-op function if auth state subscription fails
+    return () => {};
+  }
 };

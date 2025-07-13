@@ -4,14 +4,17 @@ import { Text, Avatar, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Heart, MessageCircle, Expand } from 'lucide-react-native';
 import { pillNavHeight } from '../constants/navigation';
-import { Post } from '../types';
+import { Post, Comment } from '../types';
 import { getFeedPosts, likePost, subscribeToPosts } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
+import { CommentModal } from '../components/CommentModal';
+import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 
-const FeedPost = ({ post, onLike, onComment }: { 
+const FeedPost = ({ post, onLike, onComment, onExpand }: { 
   post: Post; 
   onLike: (postId: string) => void; 
-  onComment: (postId: string) => void; 
+  onComment: (postId: string) => void;
+  onExpand: (post: Post) => void;
 }) => {
   const theme = useTheme();
   const [isLiked, setIsLiked] = useState(false);
@@ -116,7 +119,7 @@ const FeedPost = ({ post, onLike, onComment }: {
             </Text>
           )}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity style={styles.actionButton} onPress={() => onExpand(post)}>
           <Expand size={24} color={theme['color-basic-600'] || '#666666'} />
         </TouchableOpacity>
       </View>
@@ -130,6 +133,9 @@ export const FeedScreen = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [fullscreenImageVisible, setFullscreenImageVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Real-time posts subscription
@@ -189,15 +195,41 @@ export const FeedScreen = () => {
     try {
       await likePost(postId, user.id);
       // Real-time subscription will automatically update the UI
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error liking post:', err);
+      // TODO: Show user-friendly error message in a toast or alert
+      // For now, just log the specific error message
+      if (__DEV__) {
+        console.warn('Like failed with message:', err.message);
+      }
     }
   };
 
   // Handle post comment
   const handleComment = (postId: string) => {
-    // TODO: Open comment modal or navigate to comment screen
-    console.log('Comment on post:', postId);
+    const post = posts.find(p => p.id === postId);
+    if (post) {
+      setSelectedPost(post);
+      setCommentModalVisible(true);
+    }
+  };
+
+  // Handle post expand (fullscreen image)
+  const handleExpand = (post: Post) => {
+    setSelectedPost(post);
+    setFullscreenImageVisible(true);
+  };
+
+  // Handle comment added
+  const handleCommentAdded = (comment: Comment) => {
+    // Update the post in the local state to reflect the new comment
+    setPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === comment.postId 
+          ? { ...post, comments: [...post.comments, comment] }
+          : post
+      )
+    );
   };
 
   // Show auth prompt if not authenticated
@@ -334,6 +366,7 @@ export const FeedScreen = () => {
             post={item}
             onLike={handleLike}
             onComment={handleComment}
+            onExpand={handleExpand}
           />
         )}
         keyExtractor={(item) => item.id}
@@ -352,6 +385,36 @@ export const FeedScreen = () => {
         }
       />
       </SafeAreaView>
+
+      {/* Comment Modal */}
+      {selectedPost && (
+        <CommentModal
+          visible={commentModalVisible}
+          onClose={() => {
+            setCommentModalVisible(false);
+            setSelectedPost(null);
+          }}
+          post={selectedPost}
+          onCommentAdded={handleCommentAdded}
+        />
+      )}
+
+      {/* Fullscreen Image Viewer */}
+      {selectedPost && (
+        <FullscreenImageViewer
+          visible={fullscreenImageVisible}
+          onClose={() => {
+            setFullscreenImageVisible(false);
+            setSelectedPost(null);
+          }}
+          post={selectedPost}
+          onLike={handleLike}
+          onComment={handleComment}
+          onShare={(post) => {
+            // TODO: Implement sharing functionality
+          }}
+        />
+      )}
     </>
   );
 };

@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "sdkVersion": "53.0.0",
+    "icon": "./app/assets/images/icon.png",
     "plugins": [
       "@react-native-firebase/app",
       [
@@ -26,13 +27,15 @@
       ]
     ],
     "splash": {
+      "image": "./app/assets/images/splash-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#FDF6EC"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
+      "icon": "./app/assets/images/icon.png",
       "googleServicesFile": "./GoogleService-Info.plist",
       "supportsTablet": true,
       "bundleIdentifier": "com.cappedcola.flare",
@@ -42,9 +45,11 @@
       }
     },
     "android": {
+      "icon": "./app/assets/images/icon.png",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./app/assets/images/adaptive-icon.png",
+        "backgroundColor": "#FDF6EC"
       }
     },
     "owner": "cappedcola",

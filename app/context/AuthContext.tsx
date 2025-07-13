@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User } from '../types';
-import { subscribeToAuthState, signIn as firebaseSignIn, signUp as firebaseSignUp, signOut as firebaseSignOut, getCurrentUser } from '../services/firebaseService';
+import { subscribeToAuthState, signIn as firebaseSignIn, signUp as firebaseSignUp, signOutUser as firebaseSignOut, getCurrentUser } from '../services/firebaseService';
 
 interface AuthContextType {
   user: User | null;

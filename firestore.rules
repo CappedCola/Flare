@@ -17,9 +17,34 @@ service cloud.firestore {
       allow create: if request.auth != null && 
                    request.auth.uid == request.resource.data.userId;
       
-      // Only the post author can update/delete their posts
+      // Post authors can update/delete all fields of their posts
       allow update, delete: if request.auth != null && 
                            request.auth.uid == resource.data.userId;
+      
+      // Any authenticated user can update ONLY the likes array or comments array for social interactions
+      allow update: if request.auth != null && 
+                   (isOnlyUpdatingLikes(request.resource.data, resource.data) ||
+                    isOnlyUpdatingComments(request.resource.data, resource.data));
+    }
+    
+    // Helper function to check if only likes array is being updated
+    function isOnlyUpdatingLikes(newData, oldData) {
+      // Check that only 'likes' field is different and all other critical fields remain unchanged
+      return newData.diff(oldData).affectedKeys().hasOnly(['likes']) &&
+             newData.userId == oldData.userId &&
+             newData.photoUrl == oldData.photoUrl &&
+             newData.caption == oldData.caption &&
+             newData.username == oldData.username;
+    }
+    
+    // Helper function to check if only comments array is being updated
+    function isOnlyUpdatingComments(newData, oldData) {
+      // Check that only 'comments' field is different and all other critical fields remain unchanged
+      return newData.diff(oldData).affectedKeys().hasOnly(['comments']) &&
+             newData.userId == oldData.userId &&
+             newData.photoUrl == oldData.photoUrl &&
+             newData.caption == oldData.caption &&
+             newData.username == oldData.username;
     }
     
     // Streaks collection - User-specific

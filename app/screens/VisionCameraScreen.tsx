@@ -12,7 +12,6 @@ import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 type LensType = 'ultra-wide' | 'standard';
 
 export const VisionCameraScreen = () => {
-  console.log('🔵 VisionCameraScreen component initializing...');
   const theme = useTheme();
   const { user, isAuthenticated } = useAuth();
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'checking'>('checking');
@@ -30,22 +29,18 @@ export const VisionCameraScreen = () => {
   const [hasTriedPermissionRequest, setHasTriedPermissionRequest] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  
-  console.log('🔵 VisionCameraScreen state initialized');
   const cameraRef = useRef<Camera>(null);
   const previewOpacity = useRef(new Animated.Value(0)).current;
 
   // Camera device selection based on current lens (with crash protection)
-  console.log('🔵 Initializing camera devices...');
   let ultraWideDevice, standardDevice, fallbackDevice;
   
   try {
     ultraWideDevice = useCameraDevice('back', {
       physicalDevices: ['ultra-wide-angle-camera']
     });
-    console.log('🔵 Ultra-wide device:', !!ultraWideDevice, ultraWideDevice?.id);
   } catch (error) {
-    console.error('🔴 Failed to get ultra-wide device:', error);
+    if (__DEV__) console.error('🔴 Failed to get ultra-wide device:', error);
     setVisionCameraFailed(true);
   }
   
@@ -53,38 +48,30 @@ export const VisionCameraScreen = () => {
     standardDevice = useCameraDevice('back', {
       physicalDevices: ['wide-angle-camera']
     });
-    console.log('🔵 Standard device:', !!standardDevice, standardDevice?.id);
   } catch (error) {
-    console.error('🔴 Failed to get standard device:', error);
+    if (__DEV__) console.error('🔴 Failed to get standard device:', error);
     setVisionCameraFailed(true);
   }
   
   try {
     fallbackDevice = useCameraDevice('back');
-    console.log('🔵 Fallback device:', !!fallbackDevice, fallbackDevice?.id);
   } catch (error) {
-    console.error('🔴 Failed to get fallback device:', error);
+    if (__DEV__) console.error('🔴 Failed to get fallback device:', error);
     setVisionCameraFailed(true);
   }
 
   // Get the appropriate device based on current lens
   const activeDevice = useMemo(() => {
-    console.log('🔵 Computing active device for lens:', currentLens);
-    console.log('🔵 Available devices - ultra:', !!ultraWideDevice, 'standard:', !!standardDevice, 'fallback:', !!fallbackDevice);
-    
     let device;
     switch (currentLens) {
       case 'ultra-wide':
         device = ultraWideDevice || fallbackDevice;
-        console.log('🔵 Selected ultra-wide device:', !!device, device?.id);
         break;
       case 'standard':
         device = standardDevice || fallbackDevice;
-        console.log('🔵 Selected standard device:', !!device, device?.id);
         break;
       default:
         device = fallbackDevice;
-        console.log('🔵 Selected fallback device:', !!device, device?.id);
         break;
     }
     
@@ -94,9 +81,7 @@ export const VisionCameraScreen = () => {
   // Safe camera permission check using react-native-permissions
   const safeCameraPermissionCheck = async () => {
     try {
-      console.log('🔵 Checking camera permission with react-native-permissions...');
       const result = await check(PERMISSIONS.IOS.CAMERA);
-      console.log('🔵 react-native-permissions result:', result);
       
       // Convert react-native-permissions results to Vision Camera format
       switch (result) {
@@ -114,7 +99,7 @@ export const VisionCameraScreen = () => {
           return 'denied';
       }
     } catch (error) {
-      console.error('🔴 Error in react-native-permissions check:', error);
+      if (__DEV__) console.error('🔴 Error in react-native-permissions check:', error);
       setVisionCameraFailed(true);
       return 'denied';
     }
@@ -123,9 +108,7 @@ export const VisionCameraScreen = () => {
   // Safe camera permission request using react-native-permissions
   const safeCameraPermissionRequest = async () => {
     try {
-      console.log('🔵 Requesting camera permission with react-native-permissions...');
       const result = await request(PERMISSIONS.IOS.CAMERA);
-      console.log('🔵 react-native-permissions request result:', result);
       
       // Convert react-native-permissions results to Vision Camera format
       switch (result) {
@@ -143,7 +126,7 @@ export const VisionCameraScreen = () => {
           return 'denied';
       }
     } catch (error) {
-      console.error('🔴 Error in react-native-permissions request:', error);
+      if (__DEV__) console.error('🔴 Error in react-native-permissions request:', error);
       setVisionCameraFailed(true);
       throw error;
     }
@@ -155,19 +138,13 @@ export const VisionCameraScreen = () => {
   
   // Check camera permissions with full crash protection
   useEffect(() => {
-    console.log('🔵 Starting protected permission check useEffect...');
     const checkPermissions = async () => {
       try {
-        console.log('🔵 Getting camera permission status with crash protection...');
         const status = await safeCameraPermissionCheck();
-        console.log('🔵 Current permission status:', status);
         
         if (status !== 'granted') {
-          console.log('🔵 Permission not granted, status:', status);
-          
           // Try react-native-permissions request if status is not-determined
           if (status === 'not-determined' && !hasTriedPermissionRequest) {
-            console.log('🔵 Attempting react-native-permissions request...');
             setHasTriedPermissionRequest(true);
             
             try {
@@ -178,12 +155,11 @@ export const VisionCameraScreen = () => {
                 return; // Exit early, permission granted
               }
             } catch (error) {
-              console.error('🔴 react-native-permissions request failed:', error);
+              if (__DEV__) console.error('🔴 react-native-permissions request failed:', error);
               setVisionCameraFailed(true);
             }
           }
           
-          console.log('🔵 Going to manual permission flow');
           setPermissionStatus('denied');
           setPermissionError('Camera access required. Please grant permission manually in Settings.');
           // Complete camera detection process even with denied permissions
@@ -194,23 +170,21 @@ export const VisionCameraScreen = () => {
             startPermissionPolling();
           }
         } else if (visionCameraFailed) {
-          console.log('🔵 Vision Camera failed, requesting manual permission');
           setPermissionStatus('denied');
           setPermissionError('Camera system unavailable. Please grant camera access manually in Settings > Privacy & Security > Camera.');
           // Complete detection process for failed Vision Camera
           setIsDetectingCameras(false);
           setIsCameraReady(false);
         } else {
-          console.log('🔵 Permission already granted');
           setPermissionStatus(status);
         }
       } catch (error) {
-        console.error('🔴 Outer error in permission check:', error);
+        if (__DEV__) console.error('🔴 Outer error in permission check:', error);
         setPermissionStatus('denied');
         setVisionCameraFailed(true);
         // Trigger fallback to Expo Camera
         if ((global as any).fallbackToExpoCamera) {
-          console.log('🔴 Triggering fallback to Expo Camera due to critical Vision Camera failure');
+          if (__DEV__) console.log('🔴 Triggering fallback to Expo Camera due to critical Vision Camera failure');
           (global as any).fallbackToExpoCamera();
         }
       }
@@ -220,29 +194,25 @@ export const VisionCameraScreen = () => {
 
   // Permission polling for manual grants
   const startPermissionPolling = () => {
-    console.log('🔵 Starting permission polling...');
     setIsPollingPermissions(true);
     
     const pollInterval = setInterval(async () => {
       try {
         const status = await safeCameraPermissionCheck();
-        console.log('🔵 Polling permission status:', status);
         
         if (status === 'granted') {
-          console.log('🔵 Permission granted via manual settings!');
           setPermissionStatus('granted');
           setPermissionError(null);
           setIsPollingPermissions(false);
           clearInterval(pollInterval);
         }
       } catch (error) {
-        console.error('🔴 Error in permission polling:', error);
+        if (__DEV__) console.error('🔴 Error in permission polling:', error);
       }
     }, 2000);
     
     // Stop polling after 60 seconds
     setTimeout(() => {
-      console.log('🔵 Stopping permission polling after timeout');
       setIsPollingPermissions(false);
       clearInterval(pollInterval);
     }, 60000);
@@ -250,75 +220,57 @@ export const VisionCameraScreen = () => {
   
   // Detect available camera lenses
   useEffect(() => {
-    console.log('🔵 Camera detection useEffect triggered, permission status:', permissionStatus);
-    
     const detectCameras = async () => {
       try {
-        console.log('🔵 Starting camera detection...');
         setIsDetectingCameras(true);
         
-        console.log('🔵 Getting available camera devices...');
         const devices = Camera.getAvailableCameraDevices();
-        console.log('🔵 Found devices:', devices.length, devices.map(d => ({ id: d.id, position: d.position, physicalDevices: d.physicalDevices })));
-        
         const backDevices = devices.filter(d => d.position === 'back');
-        console.log('🔵 Back devices:', backDevices.length, backDevices.map(d => ({ id: d.id, physicalDevices: d.physicalDevices })));
         
         const lenses: LensType[] = [];
         
         // Check for ultra-wide camera
         const hasUltraWide = backDevices.some(d => d.physicalDevices?.includes('ultra-wide-angle-camera'));
-        console.log('🔵 Has ultra-wide camera:', hasUltraWide);
         if (hasUltraWide) {
           lenses.push('ultra-wide');
         }
         
         // Check for standard wide-angle camera
         const hasStandard = backDevices.some(d => d.physicalDevices?.includes('wide-angle-camera'));
-        console.log('🔵 Has standard camera:', hasStandard);
         if (hasStandard) {
           lenses.push('standard');
         }
         
         // If no specific lenses found but we have back cameras, assume standard
         if (lenses.length === 0 && backDevices.length > 0) {
-          console.log('🔵 No specific lenses found, defaulting to standard');
           lenses.push('standard');
         }
         
-        console.log('🔵 Available lenses:', lenses);
         setAvailableLenses(lenses);
         
         // Set default lens based on available cameras
         if (lenses.includes('standard')) {
-          console.log('🔵 Setting default lens to standard');
           setCurrentLens('standard');
         } else if (lenses.includes('ultra-wide')) {
-          console.log('🔵 Setting default lens to ultra-wide');
           setCurrentLens('ultra-wide');
         }
-        
-        console.log('🔵 Camera detection completed successfully');
       } catch (error) {
-        console.error('🔴 Error detecting cameras:', error);
-        console.error('🔴 Error details:', JSON.stringify(error, null, 2));
+        if (__DEV__) {
+          console.error('🔴 Error detecting cameras:', error);
+          console.error('🔴 Error details:', JSON.stringify(error, null, 2));
+        }
         // Fallback to standard lens
         setAvailableLenses(['standard']);
         setCurrentLens('standard');
       } finally {
-        console.log('🔵 Finishing camera detection, setting states...');
         setIsDetectingCameras(false);
         // Camera detection complete, but don't mark as ready yet
         // Camera will be marked ready when onInitialized callback fires
-        console.log('🔵 Camera detection process complete');
       }
     };
     
     if (permissionStatus === 'granted') {
-      console.log('🔵 Permission granted, starting camera detection');
       detectCameras();
-    } else {
-      console.log('🔵 Permission not granted, skipping camera detection');
     }
   }, [permissionStatus]);
 
@@ -401,7 +353,7 @@ export const VisionCameraScreen = () => {
             useNativeDriver: true,
           }).start();
         }, (error) => {
-          console.error('Error getting photo dimensions:', error);
+          if (__DEV__) console.error('Error getting photo dimensions:', error);
           // Fallback to showing preview without orientation detection
           setPhotoOrientation('portrait');
           setShowPreview(true);
@@ -416,7 +368,7 @@ export const VisionCameraScreen = () => {
       }
     } catch (error) {
       console.error('Error taking picture:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
+      if (__DEV__) console.error('Error details:', JSON.stringify(error, null, 2));
     } finally {
       console.log('Photo capture completed, resetting capturing state');
       setIsCapturing(false);
@@ -470,7 +422,6 @@ export const VisionCameraScreen = () => {
 
   // Loading state while detecting cameras or checking permissions (but not if permission denied)
   if ((isDetectingCameras || permissionStatus === 'checking') && permissionStatus !== 'denied') {
-    console.log('🔵 Rendering loading state - detecting:', isDetectingCameras, 'permission:', permissionStatus, 'ready:', isCameraReady);
     return (
       <SafeAreaView style={[
         styles.container,
@@ -541,7 +492,6 @@ export const VisionCameraScreen = () => {
             <TouchableOpacity 
               style={[styles.actionButton, styles.settingsButton]}
               onPress={() => {
-                console.log('🔵 Opening iOS Settings');
                 // Open app-specific settings where camera toggle should appear
                 Linking.openSettings();
                 if (!isPollingPermissions) {
@@ -557,7 +507,6 @@ export const VisionCameraScreen = () => {
             <TouchableOpacity 
               style={[styles.actionButton, styles.retryButton]}
               onPress={() => {
-                console.log('🔵 Check Again button pressed');
                 setPermissionStatus('checking');
                 setPermissionError(null);
                 // Reset hasTriedPermissionRequest to allow new permission request
@@ -595,7 +544,6 @@ export const VisionCameraScreen = () => {
     );
   }
 
-  console.log('🔵 Rendering camera component with device:', activeDevice?.id);
   
   return (
     <>
@@ -616,7 +564,7 @@ export const VisionCameraScreen = () => {
             }}
             onError={(error) => {
               console.error('🔴 Camera error:', error);
-              console.error('🔴 Camera error details:', JSON.stringify(error, null, 2));
+              if (__DEV__) console.error('🔴 Camera error details:', JSON.stringify(error, null, 2));
               setIsCameraReady(false);
             }}
           />

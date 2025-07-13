@@ -233,6 +233,179 @@ npx expo start --dev-client
 4. **Real-time Display**: onSnapshot listener → Automatic feed updates for all users
 5. **Social Interactions**: Like system with real-time user ID tracking
 
+## Database Architecture & Implementation Details
+
+### 🔧 Firebase Project Configuration
+- **Project ID**: `flare-app-a2b12`
+- **Auth Domain**: `flare-app-a2b12.firebaseapp.com`
+- **Storage Bucket**: `flare-app-a2b12.firebasestorage.app`
+- **Database URL**: `https://flare-app-a2b12-default-rtdb.firebaseio.com`
+- **Region**: Default (us-central1)
+
+### 📚 Firestore Database Schema
+
+#### Users Collection (`/users/{userId}`)
+```typescript
+interface User {
+  id: string;              // Firebase Auth UID
+  username: string;        // Unique username for display
+  email: string;           // User's email from auth
+  displayName: string;     // Display name (usually same as username)
+  avatar?: string;         // URL to profile photo in Storage
+  bio?: string;            // User biography
+  currentStreak: number;   // Current consecutive days
+  totalPhotos: number;     // Total photos uploaded
+  longestStreak: number;   // Best streak achieved
+  friends: string[];       // Array of friend user IDs
+  createdAt: Date;         // Account creation timestamp
+  lastActiveAt: Date;      // Last app activity
+  lastPhotoDate?: Date;    // Last photo upload date
+}
+```
+
+#### Posts Collection (`/posts/{postId}`)
+```typescript
+interface Post {
+  id: string;              // Auto-generated document ID
+  userId: string;          // Reference to user who posted
+  username: string;        // Cached username for display
+  userAvatar?: string;     // Cached user avatar URL
+  photoUrl: string;        // Main photo URL from Storage
+  thumbnailUrl?: string;   // Optimized thumbnail (future)
+  previewUrl?: string;     // Preview image (future)
+  caption?: string;        // Optional caption text
+  streakDay: number;       // Which day of streak this represents
+  location?: {             // Optional location data
+    city: string;
+    country: string;
+    coordinates?: [number, number];
+  };
+  createdAt: Date;         // Post creation timestamp
+  likes: string[];         // Array of user IDs who liked
+  comments: Comment[];     // Embedded comments array
+  isVisible: boolean;      // Post visibility flag
+}
+```
+
+#### Comments (Embedded in Posts)
+```typescript
+interface Comment {
+  id: string;              // Unique comment ID
+  postId: string;          // Reference to parent post
+  userId: string;          // Comment author ID
+  username: string;        // Cached username
+  userAvatar?: string;     // Cached avatar URL
+  text: string;            // Comment content
+  createdAt: Date;         // Comment timestamp
+  likes: string[];         // Array of user IDs who liked comment
+}
+```
+
+#### Streaks Collection (`/streaks/{streakId}`) - Planned
+```typescript
+interface Streak {
+  id: string;              // Auto-generated document ID
+  userId: string;          // Reference to user
+  startDate: Date;         // When streak began
+  endDate?: Date;          // When streak ended (if applicable)
+  currentCount: number;    // Current consecutive days
+  isActive: boolean;       // Whether streak is ongoing
+  photos: string[];        // Array of photo URLs in streak
+  lastPhotoDate: Date;     // Last photo added to streak
+}
+```
+
+### 🗂️ Firebase Storage Structure
+```
+/photos/
+  /{userId}/
+    /{timestamp}.jpg     // Original uploaded photos
+/thumbnails/             // Future: Generated thumbnails
+  /{userId}/
+    /{timestamp}_thumb.jpg
+/avatars/                // Future: User profile photos
+  /{userId}/
+    /profile.jpg
+```
+
+### 🔄 Data Relationships & Flow
+
+#### Authentication Flow
+1. **Sign Up**: `createUserWithEmailAndPassword()` → Create user document in Firestore
+2. **Sign In**: `signInWithEmailAndPassword()` → Retrieve user document
+3. **Auth State**: `onAuthStateChanged()` → Update app state with user data
+4. **Sign Out**: `signOut()` → Clear local state
+
+#### Photo Upload & Post Creation Flow
+1. **Capture**: Vision Camera → Local file URI
+2. **Upload**: Firebase Storage `putFile()` → Get download URL
+3. **Create Post**: Firestore `addDoc()` with photo URL and metadata
+4. **Update User**: Increment `totalPhotos` and `currentStreak`
+5. **Real-time Update**: All clients receive new post via `onSnapshot()`
+
+#### Social Interaction Flow
+1. **Like Post**: `updateDoc()` with `arrayUnion(userId)` on `likes` field
+2. **Add Comment**: `updateDoc()` with `arrayUnion(comment)` on `comments` field
+3. **Real-time Updates**: All changes propagate via Firestore listeners
+
+### 📊 Current Implementation Status
+
+#### ✅ Fully Implemented
+- **User Authentication**: Email/password with document creation
+- **Photo Upload**: Storage integration with URL generation
+- **Post Creation**: Complete post documents with metadata
+- **Real-time Feed**: Live updates via `onSnapshot()` listeners
+- **Like System**: Array-based likes with real-time updates
+- **Comment System**: Embedded comments with real-time display
+- **User Profiles**: Basic user data and photo grid display
+
+#### 🚧 Partially Implemented
+- **Streak Tracking**: Basic streak counter in user document (not fully automated)
+- **Photo Grid**: User photos displayed but no pagination
+- **Error Handling**: Basic error catching but limited user feedback
+
+#### ❌ Not Yet Implemented
+- **Friend System**: Friend requests and friend-only posts
+- **Push Notifications**: Streak reminders and social notifications
+- **Advanced Streak Logic**: Automatic streak tracking with date validation
+- **Image Optimization**: Thumbnail generation and compression
+- **Search Functionality**: User search and discovery
+- **Privacy Controls**: Post visibility settings and blocking
+- **Content Moderation**: Inappropriate content detection
+- **Analytics**: Usage tracking and insights
+
+### 🔒 Security & Performance Considerations
+
+#### Firebase Security Rules Needed
+- **Firestore Rules**: Users can only edit their own documents
+- **Storage Rules**: Users can only upload to their own folders
+- **Authentication Rules**: Proper email verification and password policies
+
+#### Database Indexes Required
+```javascript
+// Composite indexes needed for efficient queries
+posts: {
+  userId_createdAt: { userId: 'asc', createdAt: 'desc' },
+  createdAt: { createdAt: 'desc' }
+}
+users: {
+  username: { username: 'asc' }
+}
+```
+
+#### Performance Optimizations
+- **Query Limits**: Paginated feeds with `limit()` and cursor-based pagination
+- **Real-time Limits**: Limit `onSnapshot()` listeners to prevent excessive reads
+- **Image Compression**: Implement client-side compression before upload
+- **Caching Strategy**: Cache user data and posts for offline access
+
+### 🚀 Future Scalability Considerations
+- **Sharding**: Consider sharding large collections by date or region
+- **Cloud Functions**: Move complex logic to server-side functions
+- **CDN Integration**: Use Firebase hosting with CDN for faster image delivery
+- **Database Migration**: Plan for potential migration to more scalable solutions
+- **Analytics Integration**: Firebase Analytics for user behavior tracking
+
 # Important Instruction Reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
