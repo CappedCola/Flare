@@ -1,7 +1,7 @@
 import '@react-native-firebase/app';
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
-import storage from '@react-native-firebase/storage';
+import { getAuth } from '@react-native-firebase/auth';
+import { getFirestore } from '@react-native-firebase/firestore';
+import { getStorage } from '@react-native-firebase/storage';
 
 // Your Firebase configuration from Firebase Console
 const firebaseConfig = {
@@ -15,8 +15,11 @@ const firebaseConfig = {
   measurementId: "G-5THJRD95BP"
 };
 
-// Note: React Native Firebase automatically initializes the app
-// We just need to export the services for use throughout the app
+// React Native Firebase v22+ modular API
+// Initialize Firebase services using the new modular approach
+const auth = getAuth();
+const firestore = getFirestore();
+const storage = getStorage();
 
 export { auth, firestore, storage };
 export default firebaseConfig;

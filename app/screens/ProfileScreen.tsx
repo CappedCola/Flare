@@ -93,7 +93,6 @@ export const ProfileScreen = () => {
   const [error, setError] = useState<string | null>(null);
 
   const handleMenuPress = (item: string) => {
-    console.log(`Pressed ${item}`);
   };
 
   // Load user photos
@@ -104,17 +103,11 @@ export const ProfileScreen = () => {
       setError(null);
       setLoading(true);
       
-      console.log('🏠 ProfileScreen: About to call getUserPhotos with userId:', user.id);
-      console.log('🏠 ProfileScreen: User object:', { id: user.id, username: user.username });
-      
       const userPhotos = await getUserPhotos(user.id);
-      
-      console.log('🏠 ProfileScreen: getUserPhotos returned:', userPhotos.length, 'photos');
       setPhotos(userPhotos);
     } catch (err) {
-      console.error('🏠 ProfileScreen: Error in loadUserData:', err);
       setError('Failed to load profile data. Please try again.');
-      console.error('Error loading user data:', err);
+      if (__DEV__) console.error('Error loading user data:', err);
     } finally {
       setLoading(false);
     }

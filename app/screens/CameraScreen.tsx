@@ -38,7 +38,6 @@ export const CameraScreen = () => {
   }
   
   // Use Expo Camera for Expo Go compatibility or when Vision Camera fails
-  console.log('🔵 Using Expo Camera fallback');
   const { ExpoCameraScreen } = require('./ExpoCameraScreen');
   return React.createElement(ExpoCameraScreen);
 };
