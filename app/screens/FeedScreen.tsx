@@ -10,19 +10,37 @@ import { useAuth } from '../context/AuthContext';
 import { CommentModal } from '../components/CommentModal';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 
-const FeedPost = ({ post, onLike, onComment, onExpand }: { 
+// Helper function to safely count unique comments
+const getUniqueCommentCount = (comments: Comment[]): number => {
+  if (!comments || comments.length === 0) return 0;
+  const uniqueIds = new Set(comments.map(comment => comment.id).filter(Boolean));
+  return uniqueIds.size;
+};
+
+const FeedPost = ({ post, onLike, onComment, onExpand, currentUserId }: { 
   post: Post; 
   onLike: (postId: string) => void; 
   onComment: (postId: string) => void;
   onExpand: (post: Post) => void;
+  currentUserId: string | null;
 }) => {
   const theme = useTheme();
-  const [isLiked, setIsLiked] = useState(false);
+  
+  // Initialize like state based on whether current user has liked this post
+  const [isLiked, setIsLiked] = useState(
+    currentUserId ? post.likes.includes(currentUserId) : false
+  );
   const [likesCount, setLikesCount] = useState(post.likes.length);
   
+  // Update like state when post data changes (from Firebase real-time updates)
+  useEffect(() => {
+    const userHasLiked = currentUserId ? post.likes.includes(currentUserId) : false;
+    setIsLiked(userHasLiked);
+    setLikesCount(post.likes.length);
+  }, [post.likes, currentUserId]);
+  
   const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
+    // Don't do optimistic updates - let Firebase real-time listener handle UI updates
     onLike(post.id);
   };
   
@@ -110,12 +128,12 @@ const FeedPost = ({ post, onLike, onComment, onExpand }: {
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton} onPress={() => onComment(post.id)}>
           <MessageCircle size={24} color={theme['color-basic-600'] || '#666666'} />
-          {post.comments.length > 0 && (
+          {getUniqueCommentCount(post.comments) > 0 && (
             <Text category='c2' style={[
               styles.actionText,
               { color: theme['text-secondary-color'] }
             ]}>
-              {post.comments.length}
+              {getUniqueCommentCount(post.comments)}
             </Text>
           )}
         </TouchableOpacity>
@@ -220,16 +238,10 @@ export const FeedScreen = () => {
     setFullscreenImageVisible(true);
   };
 
-  // Handle comment added
+  // Handle comment added - let Firebase real-time listener handle updates
   const handleCommentAdded = (comment: Comment) => {
-    // Update the post in the local state to reflect the new comment
-    setPosts(prevPosts => 
-      prevPosts.map(post => 
-        post.id === comment.postId 
-          ? { ...post, comments: [...post.comments, comment] }
-          : post
-      )
-    );
+    // No manual state update needed - Firebase real-time listener will handle this
+    // This prevents duplicate comments and race conditions
   };
 
   // Show auth prompt if not authenticated
@@ -367,6 +379,7 @@ export const FeedScreen = () => {
             onLike={handleLike}
             onComment={handleComment}
             onExpand={handleExpand}
+            currentUserId={user?.id || null}
           />
         )}
         keyExtractor={(item) => item.id}
@@ -413,6 +426,7 @@ export const FeedScreen = () => {
           onShare={(post) => {
             // TODO: Implement sharing functionality
           }}
+          currentUserId={user?.id || null}
         />
       )}
     </>

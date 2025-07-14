@@ -13,7 +13,14 @@ import {
 import { Text, Avatar, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Heart, MessageCircle, Share } from 'lucide-react-native';
-import { Post } from '../types';
+import { Post, Comment } from '../types';
+
+// Helper function to safely count unique comments
+const getUniqueCommentCount = (comments: Comment[]): number => {
+  if (!comments || comments.length === 0) return 0;
+  const uniqueIds = new Set(comments.map(comment => comment.id).filter(Boolean));
+  return uniqueIds.size;
+};
 
 interface FullscreenImageViewerProps {
   visible: boolean;
@@ -22,6 +29,7 @@ interface FullscreenImageViewerProps {
   onLike?: (postId: string) => void;
   onComment?: (postId: string) => void;
   onShare?: (post: Post) => void;
+  currentUserId?: string | null;
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -33,10 +41,21 @@ export const FullscreenImageViewer = ({
   onLike,
   onComment,
   onShare,
+  currentUserId,
 }: FullscreenImageViewerProps) => {
   const theme = useTheme();
-  const [isLiked, setIsLiked] = React.useState(post.likes.length > 0);
+  
+  // Initialize like state based on whether current user has liked this post
+  const [isLiked, setIsLiked] = React.useState(
+    currentUserId ? post.likes.includes(currentUserId) : false
+  );
   const [showOverlay, setShowOverlay] = React.useState(true);
+  
+  // Update like state when post data changes (from Firebase real-time updates)
+  React.useEffect(() => {
+    const userHasLiked = currentUserId ? post.likes.includes(currentUserId) : false;
+    setIsLiked(userHasLiked);
+  }, [post.likes, currentUserId]);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -158,7 +177,7 @@ export const FullscreenImageViewer = ({
   };
 
   const handleLike = () => {
-    setIsLiked(!isLiked);
+    // Don't do optimistic updates - let Firebase real-time listener handle UI updates
     onLike?.(post.id);
   };
 
@@ -246,8 +265,8 @@ export const FullscreenImageViewer = ({
 
                 <TouchableOpacity style={styles.actionButton} onPress={handleComment}>
                   <MessageCircle size={28} color="#FFFFFF" />
-                  {post.comments.length > 0 && (
-                    <Text style={styles.actionText}>{post.comments.length}</Text>
+                  {getUniqueCommentCount(post.comments) > 0 && (
+                    <Text style={styles.actionText}>{getUniqueCommentCount(post.comments)}</Text>
                   )}
                 </TouchableOpacity>
               </View>

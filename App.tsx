@@ -8,6 +8,8 @@ import { RootNavigator } from './app/navigation/RootNavigator';
 import * as eva from '@eva-design/eva';
 import { flareThemeLogoBased } from './app/theme/newflaretheme';
 import { AuthProvider } from './app/context/AuthContext';
+import { NavigationProvider } from './app/context/NavigationContext';
+import { NotificationProvider } from './app/context/NotificationContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,8 +33,12 @@ export default function App() {
       <IconRegistry icons={EvaIconsPack} />
       <ApplicationProvider {...eva} theme={flareThemeLogoBased}>
         <AuthProvider>
-          <RootNavigator />
-          <StatusBar style="auto" />
+          <NavigationProvider>
+            <NotificationProvider>
+              <RootNavigator />
+              <StatusBar style="auto" />
+            </NotificationProvider>
+          </NavigationProvider>
         </AuthProvider>
       </ApplicationProvider>
     </>
