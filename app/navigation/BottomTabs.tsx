@@ -8,6 +8,7 @@ import {
 	Dimensions,
 	Animated,
 } from "react-native";
+import { useNavigation as useNavigationContext } from "../context/NavigationContext";
 import { Icon, useTheme } from "@ui-kitten/components";
 import { GalleryVerticalEnd, Plus, User } from 'lucide-react-native';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -57,6 +58,7 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 	const colorScheme = Appearance.getColorScheme();
 	const isDark = colorScheme === "dark";
 	const { width: screenWidth } = Dimensions.get("window");
+	const { isNavigationVisible } = useNavigationContext();
 
 	const tabs = [
 		{ name: "Feed", icon: FeedIcon },
@@ -112,6 +114,11 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 			? theme["text-on-primary-color"]
 			: theme["color-basic-600"];
 	};
+
+	// Hide navigation if context indicates it should be hidden
+	if (!isNavigationVisible) {
+		return null;
+	}
 
 	return (
 		<View style={[styles.container, { bottom: insets.bottom - 25 }]}>

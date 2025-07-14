@@ -8,7 +8,11 @@ import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { SignUpScreen } from '../screens/SignUpScreen';
 import { SignInScreen } from '../screens/SignInScreen';
 import { PostUploadScreen } from '../screens/PostUploadScreen';
+import { PhotoSendScreen } from '../screens/PhotoSendScreen';
+import { PhotoEditScreen } from '../screens/PhotoEditScreen';
 import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
+import { NotificationModal } from '../components/NotificationModal';
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -35,6 +39,22 @@ const MainNavigator = () => {
       <MainStack.Screen 
         name="PostUpload" 
         component={PostUploadScreen}
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom'
+        }}
+      />
+      <MainStack.Screen 
+        name="PhotoSend" 
+        component={PhotoSendScreen}
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom'
+        }}
+      />
+      <MainStack.Screen 
+        name="PhotoEdit" 
+        component={PhotoEditScreen}
         options={{
           presentation: 'modal',
           animation: 'slide_from_bottom'
@@ -70,6 +90,12 @@ const LoadingScreen = () => {
 
 export const RootNavigator = () => {
   const { user, loading } = useAuth();
+  const { 
+    currentNotification, 
+    hideNotification, 
+    markAsViewed, 
+    markAsDismissed 
+  } = useNotification();
 
   return (
     <NavigationContainer>
@@ -79,6 +105,17 @@ export const RootNavigator = () => {
         <MainNavigator />
       ) : (
         <AuthNavigator />
+      )}
+      
+      {/* Global Notification Modal */}
+      {user && (
+        <NotificationModal
+          post={currentNotification}
+          isVisible={!!currentNotification}
+          onClose={hideNotification}
+          onViewed={markAsViewed}
+          onDismissed={markAsDismissed}
+        />
       )}
     </NavigationContainer>
   );

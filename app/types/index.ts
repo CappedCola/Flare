@@ -37,6 +37,17 @@ export interface Post {
   timeAgo: string; // Computed field for UI
 }
 
+export interface PersonalPost extends Post {
+  isPersonalPost: true;
+  recipientId: string;
+  senderInfo: {
+    id: string;
+    username: string;
+    avatar?: string;
+  };
+  status: 'sent' | 'viewed' | 'dismissed';
+}
+
 export interface Comment {
   id: string;
   postId: string;

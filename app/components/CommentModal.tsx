@@ -143,8 +143,7 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
     setIsSubmitting(true);
     try {
       const newComment = await addComment(post.id, user.id, commentText.trim());
-      // Remove manual local state update to prevent duplicate keys
-      // The real-time listener will automatically update post.comments and trigger useEffect
+      setComments(prev => [...prev, newComment]);
       setCommentText('');
       onCommentAdded?.(newComment);
     } catch (error) {

@@ -1,4 +1,4 @@
-import { User, Post, Comment, Streak, PhotoMetadata } from '../types';
+import { User, Post, Comment, Streak, PhotoMetadata, PersonalPost } from '../types';
 import { auth, firestore, storage } from '../config/firebase';
 import { formatTimeAgo } from '../utils/helpers';
 // React Native Firebase v22+ modular API imports
@@ -185,6 +185,72 @@ export const createPost = async (photoUri: string, caption: string = '', userId:
     } else {
       throw new Error(`Failed to create post: ${error.message || 'Unknown error'}`);
     }
+  }
+};
+
+// Dual posting: Create both global and personal posts
+export const createPostWithRecipients = async (
+  photoUri: string, 
+  caption: string = '', 
+  userId: string,
+  recipients: string[] = []
+): Promise<void> => {
+  try {
+    // First create the global post
+    await createPost(photoUri, caption, userId);
+    
+    // If recipients are specified, create personal posts for each
+    if (recipients.length > 0) {
+      // Get sender info
+      const userDoc = await getDoc(doc(firestore, 'users', userId));
+      if (!userDoc.exists()) {
+        throw new Error('Sender not found in database');
+      }
+      
+      const senderData = userDoc.data();
+      const senderInfo = {
+        id: userId,
+        username: senderData?.username || 'Unknown',
+        avatar: senderData?.avatar
+      };
+      
+      // Upload photo again for personal posts (in real implementation, you'd reuse the same photo URL)
+      const cleanPhotoPath = photoUri.startsWith('file://') ? photoUri.replace('file://', '') : photoUri;
+      const filename = `personal_photos/${userId}/${Date.now()}.jpg`;
+      const storageReference = storage.ref(filename);
+      await storageReference.putFile(cleanPhotoPath);
+      const personalPhotoUrl = await storageReference.getDownloadURL();
+      
+      // Create personal posts for each recipient
+      const personalPostPromises = recipients.map(async (recipientId) => {
+        const personalPostData = {
+          userId,
+          username: senderInfo.username,
+          userAvatar: senderInfo.avatar,
+          photoUrl: personalPhotoUrl,
+          caption,
+          streakDay: senderData?.currentStreak || 1,
+          createdAt: serverTimestamp(),
+          likes: [],
+          comments: [],
+          isVisible: true,
+          isPersonalPost: true,
+          recipientId,
+          senderInfo,
+          status: 'sent'
+        };
+        
+        // Add to personal_posts collection
+        return addDoc(collection(firestore, 'personal_posts'), personalPostData);
+      });
+      
+      await Promise.all(personalPostPromises);
+    }
+  } catch (error: any) {
+    if (__DEV__) {
+      console.error('Error creating post with recipients:', error);
+    }
+    throw new Error(`Failed to create post: ${error.message || 'Unknown error'}`);
   }
 };
 
@@ -547,13 +613,26 @@ export const subscribeToPosts = (callback: (posts: Post[]) => void, onError?: (e
             location: data.location,
             createdAt: data.createdAt?.toDate() || new Date(),
             likes: data.likes || [],
-            comments: (data.comments || []).map((comment: any) => ({
-              ...comment,
-              // Handle timestamp conversion for comments (now using regular Date objects)
-              createdAt: comment.createdAt?.toDate ? comment.createdAt.toDate() : 
-                        (comment.createdAt instanceof Date ? comment.createdAt : new Date(comment.createdAt)),
-              // Don't modify userAvatar - if it exists in Firestore, keep it; if not, it's already omitted
-            })),
+            comments: (() => {
+              const comments = data.comments || [];
+              // Deduplicate comments by ID to prevent duplicate key errors
+              const seen = new Set<string>();
+              const uniqueComments = comments.filter((comment: any) => {
+                if (seen.has(comment.id)) {
+                  return false;
+                }
+                seen.add(comment.id);
+                return true;
+              });
+              
+              return uniqueComments.map((comment: any) => ({
+                ...comment,
+                // Handle timestamp conversion for comments (now using regular Date objects)
+                createdAt: comment.createdAt?.toDate ? comment.createdAt.toDate() : 
+                          (comment.createdAt instanceof Date ? comment.createdAt : new Date(comment.createdAt)),
+                // Don't modify userAvatar - if it exists in Firestore, keep it; if not, it's already omitted
+              }));
+            })(),
             isVisible: data.isVisible ?? true,
             timeAgo: formatTimeAgo(data.createdAt?.toDate() || new Date()),
           };
@@ -571,6 +650,107 @@ export const subscribeToPosts = (callback: (posts: Post[]) => void, onError?: (e
         if (onError) onError(new Error('Failed to subscribe to posts'));
       }
     );
+};
+
+// Personal Posts Services
+export const getPersonalPosts = async (userId: string, limitCount: number = 20): Promise<PersonalPost[]> => {
+  try {
+    const q = query(
+      collection(firestore, 'personal_posts'),
+      where('recipientId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    const personalPosts: PersonalPost[] = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        userId: data.userId,
+        username: data.username,
+        userAvatar: data.userAvatar,
+        photoUrl: data.photoUrl,
+        thumbnailUrl: data.thumbnailUrl,
+        previewUrl: data.previewUrl,
+        caption: data.caption,
+        streakDay: data.streakDay,
+        location: data.location,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        likes: data.likes || [],
+        comments: data.comments || [],
+        isVisible: data.isVisible ?? true,
+        timeAgo: formatTimeAgo(data.createdAt?.toDate() || new Date()),
+        isPersonalPost: true,
+        recipientId: data.recipientId,
+        senderInfo: data.senderInfo,
+        status: data.status || 'sent'
+      };
+    });
+    
+    return personalPosts;
+  } catch (error: any) {
+    if (__DEV__) console.error('Error getting personal posts:', error);
+    throw new Error('Failed to load personal posts');
+  }
+};
+
+export const subscribeToPersonalPosts = (userId: string, callback: (posts: PersonalPost[]) => void, onError?: (error: Error) => void) => {
+  const q = query(
+    collection(firestore, 'personal_posts'),
+    where('recipientId', '==', userId),
+    where('status', '==', 'sent'),
+    orderBy('createdAt', 'desc'),
+    limit(10)
+  );
+  
+  return onSnapshot(q,
+    (snapshot) => {
+      const personalPosts: PersonalPost[] = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: data.userId,
+          username: data.username,
+          userAvatar: data.userAvatar,
+          photoUrl: data.photoUrl,
+          thumbnailUrl: data.thumbnailUrl,
+          previewUrl: data.previewUrl,
+          caption: data.caption,
+          streakDay: data.streakDay,
+          location: data.location,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          likes: data.likes || [],
+          comments: data.comments || [],
+          isVisible: data.isVisible ?? true,
+          timeAgo: formatTimeAgo(data.createdAt?.toDate() || new Date()),
+          isPersonalPost: true,
+          recipientId: data.recipientId,
+          senderInfo: data.senderInfo,
+          status: data.status || 'sent'
+        };
+      });
+      
+      callback(personalPosts);
+    },
+    (error) => {
+      console.error('Error in personal posts subscription:', error);
+      if (onError) onError(new Error('Failed to subscribe to personal posts'));
+    }
+  );
+};
+
+export const updatePersonalPostStatus = async (postId: string, status: 'sent' | 'viewed' | 'dismissed'): Promise<void> => {
+  try {
+    await updateDoc(doc(firestore, 'personal_posts', postId), {
+      status,
+      updatedAt: serverTimestamp()
+    });
+  } catch (error: any) {
+    if (__DEV__) console.error('Error updating personal post status:', error);
+    throw new Error('Failed to update post status');
+  }
 };
 
 export const subscribeToAuthState = (callback: (user: User | null) => void) => {

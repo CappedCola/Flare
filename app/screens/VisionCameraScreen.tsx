@@ -3,8 +3,9 @@ import { StyleSheet, View, StatusBar, Text, Image, TouchableOpacity, Animated, L
 import { useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, useCameraDevice } from 'react-native-vision-camera';
-import { RotateCcw, Check, Settings } from 'lucide-react-native';
+import { RotateCcw, Check, Settings, X } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
+import { useNavigation as useNavigationContext } from '../context/NavigationContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
@@ -14,6 +15,7 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
   console.log('🔵 VisionCameraScreen component initializing...');
   const theme = useTheme();
   const { user, isAuthenticated } = useAuth();
+  const { hideNavigation, showNavigation } = useNavigationContext();
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'checking'>('checking');
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -319,6 +321,25 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
     }
   }, [permissionStatus]);
 
+  // Control navigation visibility based on preview state
+  useEffect(() => {
+    if (showPreview) {
+      hideNavigation();
+    } else {
+      showNavigation();
+    }
+  }, [showPreview, hideNavigation, showNavigation]);
+
+  // Show navigation when leaving the screen
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        // Show navigation when leaving this screen
+        showNavigation();
+      };
+    }, [showNavigation])
+  );
+
   // Expose takePicture function to be called from navigation
   useFocusEffect(
     React.useCallback(() => {
@@ -429,6 +450,7 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
     }).start(() => {
       setShowPreview(false);
       setCapturedPhoto(null);
+      // Navigation will show automatically via useEffect when showPreview becomes false
     });
   };
 
@@ -439,8 +461,22 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
       return;
     }
 
-    // Navigate to PostUploadScreen with the captured photo
-    (navigation as any).navigate('PostUpload', {
+    // Navigate to PhotoSendScreen with the captured photo
+    (navigation as any).navigate('PhotoSend', {
+      photoUri: capturedPhoto,
+      photoOrientation: photoOrientation
+    });
+  };
+
+  const editPicture = async () => {
+    if (!capturedPhoto) {
+      console.error('No photo captured');
+      retakePicture();
+      return;
+    }
+
+    // Navigate to PhotoEditScreen with the captured photo
+    (navigation as any).navigate('PhotoEdit', {
       photoUri: capturedPhoto,
       photoOrientation: photoOrientation
     });
@@ -658,28 +694,43 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
             >
               <Image source={{ uri: `file://${capturedPhoto}` }} style={styles.previewImage} />
               
-              {/* Modern Top Corner Action Buttons */}
-              <TouchableOpacity 
-                style={[
-                  styles.modernActionButton, 
-                  photoOrientation === 'landscape' ? styles.retakeButtonCornerLandscape : styles.retakeButtonCorner
-                ]}
-                onPress={retakePicture}
-                activeOpacity={0.7}
-              >
-                <RotateCcw size={28} color="#FFFFFF" />
-              </TouchableOpacity>
+              {/* Top Header with proper spacing */}
+              <SafeAreaView style={styles.previewHeader} edges={['top']}>
+                <TouchableOpacity 
+                  style={styles.closeButton}
+                  onPress={retakePicture}
+                  activeOpacity={0.7}
+                >
+                  <X size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>
+                  {user?.username || 'Unknown'}
+                </Text>
+                <View style={styles.headerSpacer} />
+              </SafeAreaView>
               
-              <TouchableOpacity 
-                style={[
-                  styles.modernActionButton, 
-                  photoOrientation === 'landscape' ? styles.confirmButtonCornerLandscape : styles.confirmButtonCorner
-                ]}
-                onPress={confirmPicture}
-                activeOpacity={0.7}
-              >
-                <Check size={28} color="#FFFFFF" />
-              </TouchableOpacity>
+              {/* Bottom Actions with proper spacing */}
+              <SafeAreaView style={styles.previewFooter} edges={['bottom']}>
+                <View style={styles.bottomActions}>
+                  <TouchableOpacity style={styles.actionButton} onPress={retakePicture}>
+                    <RotateCcw size={24} color="#FFFFFF" />
+                    <Text style={styles.actionLabel}>Retake</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity style={styles.actionButton} onPress={editPicture}>
+                    <Check size={24} color="#FFFFFF" />
+                    <Text style={styles.actionLabel}>Edit</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.nextButton}
+                    onPress={confirmPicture}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.nextButtonText}>Next</Text>
+                  </TouchableOpacity>
+                </View>
+              </SafeAreaView>
             </Animated.View>
           )}
         </View>
@@ -950,6 +1001,85 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  previewHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    zIndex: 20,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  previewFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+  },
+  bottomActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  actionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 60,
+  },
+  actionLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  nextButton: {
+    backgroundColor: '#FF4D4D',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 25,
+    shadowColor: '#FF4D4D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  nextButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   disabledButton: {
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
