@@ -3,11 +3,12 @@ import { ScrollView, StyleSheet, Dimensions, View, StatusBar, TouchableOpacity, 
 import { Text, Avatar, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // import PagerView from 'react-native-pager-view';
-import { Bell, Settings, Shield, HelpCircle, Info, User, Camera, Trophy } from 'lucide-react-native';
+import { Bell, Settings, Shield, HelpCircle, Info, User, Camera, Trophy, Users } from 'lucide-react-native';
 import { pillNavHeight } from '../constants/navigation';
 import { User as UserType } from '../types';
 import { getUserPhotos } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const photoSize = (width - 48) / 3;
@@ -85,6 +86,7 @@ const MenuItem = ({ icon: Icon, title, onPress, theme }: {
 
 export const ProfileScreen = () => {
   const theme = useTheme();
+  const navigation = useNavigation();
   const [currentPage, setCurrentPage] = useState(0);
   // const pagerRef = useRef<PagerView>(null);
   const { user } = useAuth();
@@ -163,29 +165,28 @@ export const ProfileScreen = () => {
               {user.bio}
             </Text>
           )}
+          
+          {/* Friends Button */}
+          <TouchableOpacity 
+            style={[
+              styles.friendsButton,
+              { 
+                backgroundColor: theme['color-primary-500'],
+                borderColor: theme['color-primary-500']
+              }
+            ]}
+            onPress={() => navigation.navigate('Friends' as never)}
+          >
+            <Users size={18} color={theme['text-on-primary-color']} />
+            <Text category='s1' style={[
+              styles.friendsButtonText,
+              { color: theme['text-on-primary-color'] }
+            ]}>
+              Friends
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Stats Cards */}
-        <View style={styles.statsCards}>
-          <StatCard 
-            icon={Trophy}
-            value={user.currentStreak.toString()}
-            label="Current Streak"
-            theme={theme}
-          />
-          <StatCard 
-            icon={Camera}
-            value={user.totalPhotos.toString()}
-            label="Total Photos"
-            theme={theme}
-          />
-          <StatCard 
-            icon={User}
-            value={user.friends.length.toString()}
-            label="Friends"
-            theme={theme}
-          />
-        </View>
 
         {/* Photo Grid */}
         <View style={styles.photosSection}>
@@ -444,7 +445,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   photosSection: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 31,
+    marginTop: 20,
   },
   sectionTitle: {
     fontWeight: '600',
@@ -469,6 +471,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 4,
     elevation: 3,
+    padding: 10,
   },
   photoText: {
     fontSize: 12,
@@ -499,6 +502,21 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
     paddingHorizontal: 20,
+  },
+  friendsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+    marginTop: 16,
+    gap: 8,
+    borderWidth: 1,
+  },
+  friendsButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   centered: {
     justifyContent: 'center',

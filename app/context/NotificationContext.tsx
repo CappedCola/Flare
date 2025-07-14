@@ -25,6 +25,14 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
   useEffect(() => {
     if (!user?.id) return;
     
+    // Feature flag - disable personal posts subscription temporarily to avoid permission errors
+    const enablePersonalPosts = false; // Set to true when personal posts feature is ready
+    
+    if (!enablePersonalPosts) {
+      if (__DEV__) console.log('Personal posts subscription disabled');
+      return;
+    }
+    
     // Subscribe to new personal posts for this user
     const unsubscribe = subscribeToPersonalPosts(
       user.id,
@@ -44,7 +52,10 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
         }
       },
       (error) => {
-        console.error('Error subscribing to personal posts:', error);
+        // Only log non-permission errors to avoid spam in console
+        if (error.message && !error.message.includes('permission')) {
+          console.error('Error subscribing to personal posts:', error);
+        }
       }
     );
     

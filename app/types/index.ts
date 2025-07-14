@@ -80,6 +80,12 @@ export interface FriendRequest {
   createdAt: Date;
 }
 
+export interface MutualFriend {
+  user: User;
+  mutualFriends: string[]; // Array of mutual friend usernames
+  mutualCount: number;
+}
+
 export interface Notification {
   id: string;
   userId: string;
@@ -195,6 +201,15 @@ export type RootStackParamList = {
     photoUri: string;
     photoOrientation?: 'portrait' | 'landscape';
   };
+  PhotoSend: {
+    photoUri: string;
+    photoOrientation?: 'portrait' | 'landscape';
+  };
+  PhotoEdit: {
+    photoUri: string;
+    photoOrientation?: 'portrait' | 'landscape';
+  };
+  Friends: undefined;
 };
 
 export type AuthStackParamList = {

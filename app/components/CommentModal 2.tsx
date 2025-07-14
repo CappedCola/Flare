@@ -122,43 +122,8 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
     }
   }, [visible]);
 
-  // Helper function to deduplicate comments by ID with additional safety
-  const deduplicateComments = (comments: Comment[]): Comment[] => {
-    if (!comments || comments.length === 0) return [];
-    
-    const seen = new Set<string>();
-    const uniqueComments = comments.filter(comment => {
-      // Skip comments without valid IDs
-      if (!comment?.id) return false;
-      
-      if (seen.has(comment.id)) {
-        if (__DEV__) console.log('🔍 [DEBUG] Filtering duplicate comment:', comment.id);
-        return false;
-      }
-      seen.add(comment.id);
-      return true;
-    });
-    
-    if (__DEV__ && uniqueComments.length !== comments.length) {
-      console.log('🔧 [DEBUG] Deduplicated comments:', {
-        original: comments.length,
-        unique: uniqueComments.length,
-        duplicatesRemoved: comments.length - uniqueComments.length
-      });
-    }
-    
-    return uniqueComments;
-  };
-
   useEffect(() => {
-    const newComments = deduplicateComments(post.comments || []);
-    // Only update if there's actually a change to prevent unnecessary renders
-    setComments(prevComments => {
-      if (JSON.stringify(prevComments) === JSON.stringify(newComments)) {
-        return prevComments;
-      }
-      return newComments;
-    });
+    setComments(post.comments || []);
   }, [post.comments]);
 
   const handleClose = () => {
@@ -178,8 +143,7 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
     setIsSubmitting(true);
     try {
       const newComment = await addComment(post.id, user.id, commentText.trim());
-      // Remove manual local state update to prevent duplicate keys
-      // The real-time listener will automatically update post.comments and trigger useEffect
+      setComments(prev => [...prev, newComment]);
       setCommentText('');
       onCommentAdded?.(newComment);
     } catch (error) {

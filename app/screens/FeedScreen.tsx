@@ -45,32 +45,37 @@ const FeedPost = ({ post, onLike, onComment, onExpand, currentUserId }: {
   };
   
   return (
-    <View style={[
-      styles.postContainer,
-      { backgroundColor: theme['background-basic-color-3'] }
-    ]}>
-      <View style={styles.postHeader}>
-        <Avatar
-          size='small'
-          source={{ uri: post.userAvatar || 'https://via.placeholder.com/40' }}
-          style={styles.avatar}
-        />
-        <View style={styles.userInfo}>
-          <Text category='s1' style={[
-            styles.username,
-            { color: theme['text-primary-color'] }
-          ]}>
-            {post.username}
-          </Text>
-          <Text category='c2' style={[
-            styles.timeText,
-            { color: theme['text-secondary-color'] }
-          ]}>
-            {post.timeAgo}
-          </Text>
+    <View style={styles.postWrapper}>
+      {/* Header */}
+      <View style={[
+        styles.postContainer,
+        styles.postHeaderContainer,
+        { backgroundColor: theme['background-basic-color-3'] }
+      ]}>
+        <View style={styles.postHeader}>
+          <Avatar
+            size='small'
+            source={{ uri: post.userAvatar || 'https://via.placeholder.com/40' }}
+            style={styles.avatar}
+          />
+          <View style={styles.userInfo}>
+            <Text category='s1' style={[
+              styles.username,
+              { color: theme['text-primary-color'] }
+            ]}>
+              {post.username}
+            </Text>
+            <Text category='c2' style={[
+              styles.timeText,
+              { color: theme['text-secondary-color'] }
+            ]}>
+              {post.timeAgo}
+            </Text>
+          </View>
         </View>
       </View>
-      
+
+      {/* Full-width Image */}
       <View style={[
         styles.imageContainer,
         { backgroundColor: theme['background-basic-color-3'] }
@@ -99,47 +104,54 @@ const FeedPost = ({ post, onLike, onComment, onExpand, currentUserId }: {
         )}
       </View>
       
-      {post.caption && (
-        <View style={styles.captionContainer}>
-          <Text category='p2' style={[
-            styles.caption,
-            { color: theme['text-primary-color'] }
-          ]}>
-            {post.caption}
-          </Text>
+      {/* Footer with caption and actions */}
+      <View style={[
+        styles.postContainer,
+        styles.postFooterContainer,
+        { backgroundColor: theme['background-basic-color-3'] }
+      ]}>
+        {post.caption && (
+          <View style={styles.captionContainer}>
+            <Text category='p2' style={[
+              styles.caption,
+              { color: theme['text-primary-color'] }
+            ]}>
+              {post.caption}
+            </Text>
+          </View>
+        )}
+        
+        <View style={styles.actionButtons}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
+            <Heart 
+              size={24} 
+              color={isLiked ? (theme['color-primary-500'] || '#FF4D4D') : (theme['color-basic-600'] || '#666666')} 
+              fill={isLiked ? (theme['color-primary-500'] || '#FF4D4D') : 'none'}
+            />
+            {likesCount > 0 && (
+              <Text category='c2' style={[
+                styles.actionText,
+                { color: theme['text-secondary-color'] }
+              ]}>
+                {likesCount}
+              </Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={() => onComment(post.id)}>
+            <MessageCircle size={24} color={theme['color-basic-600'] || '#666666'} />
+            {getUniqueCommentCount(post.comments) > 0 && (
+              <Text category='c2' style={[
+                styles.actionText,
+                { color: theme['text-secondary-color'] }
+              ]}>
+                {getUniqueCommentCount(post.comments)}
+              </Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={() => onExpand(post)}>
+            <Expand size={24} color={theme['color-basic-600'] || '#666666'} />
+          </TouchableOpacity>
         </View>
-      )}
-      
-      <View style={styles.actionButtons}>
-        <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
-          <Heart 
-            size={24} 
-            color={isLiked ? (theme['color-primary-500'] || '#FF4D4D') : (theme['color-basic-600'] || '#666666')} 
-            fill={isLiked ? (theme['color-primary-500'] || '#FF4D4D') : 'none'}
-          />
-          {likesCount > 0 && (
-            <Text category='c2' style={[
-              styles.actionText,
-              { color: theme['text-secondary-color'] }
-            ]}>
-              {likesCount}
-            </Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={() => onComment(post.id)}>
-          <MessageCircle size={24} color={theme['color-basic-600'] || '#666666'} />
-          {getUniqueCommentCount(post.comments) > 0 && (
-            <Text category='c2' style={[
-              styles.actionText,
-              { color: theme['text-secondary-color'] }
-            ]}>
-              {getUniqueCommentCount(post.comments)}
-            </Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={() => onExpand(post)}>
-          <Expand size={24} color={theme['color-basic-600'] || '#666666'} />
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -459,21 +471,32 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 20,
   },
-  postContainer: {
+  postWrapper: {
     marginBottom: 24,
-    marginHorizontal: 16,
+  },
+  postContainer: {
     borderRadius: 12,
     shadowColor: 'rgba(0, 0, 0, 0.1)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 8,
     elevation: 4,
+  },
+  postHeaderContainer: {
+    borderRadius: 0,
+    paddingBottom: 16,
+    paddingHorizontal: 31,
+    paddingTop: 16,
+  },
+  postFooterContainer: {
+    borderRadius: 0,
+    paddingTop: 16,
+    paddingHorizontal: 31,
     paddingBottom: 16,
   },
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
     marginBottom: 12,
   },
   avatar: {
@@ -495,7 +518,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
   imagePlaceholderText: {
     fontSize: 18,
@@ -507,7 +529,6 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
     gap: 20,
   },
   actionButton: {
@@ -526,7 +547,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   captionContainer: {
-    paddingHorizontal: 16,
     paddingBottom: 8,
   },
   caption: {

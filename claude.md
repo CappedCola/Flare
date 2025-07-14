@@ -40,12 +40,22 @@ Flare is meant to be used on multiple different devices and you should make any 
     │   ├── RootNavigator.tsx  # Main navigation container
     │   └── BottomTabs.tsx     # Apple glass pill bottom navigation with blur effects
     ├── screens/
-    │   ├── FeedScreen.tsx     # Home feed with photo cards and social interactions
+    │   ├── FeedScreen.tsx     # Home feed with full-width photos and social interactions
     │   ├── CameraScreen.tsx   # Functional camera with expo-camera integration
-    │   └── ProfileScreen.tsx  # User profile with tabbed interface (streaks/settings)
+    │   ├── ProfileScreen.tsx  # User profile with tabbed interface (streaks/settings)
+    │   └── FriendsScreen.tsx  # Complete friends management with search and mutual friends
     ├── constants/
     │   └── navigation.ts      # Navigation height constants for consistent spacing
-    ├── components/            # Shared reusable components (empty for now)
+    ├── components/            # Shared reusable components
+    │   ├── CommentModal.tsx   # Comment viewing and posting modal
+    │   ├── FullscreenImageViewer.tsx # Image expansion modal
+    │   ├── NotificationModal.tsx # Personal photo notifications
+    │   ├── PhotoEditor.tsx    # Photo editing interface
+    │   └── UserSelector.tsx   # Friend selection for photo sharing
+    ├── context/
+    │   ├── AuthContext.tsx    # Authentication state management
+    │   ├── NavigationContext.tsx # Navigation utilities
+    │   └── NotificationContext.tsx # Personal photo notifications
     ├── theme/
     │   └── newflaretheme.ts   # Custom Flare Eva Design theme
     └── assets/               # Static assets
@@ -66,12 +76,13 @@ The app uses a custom Eva Design theme with a modern light visual identity and F
 
 ### Component Patterns
 
-- **Feed Cards**: Light white cards with subtle shadows, social media layout with user avatars, photo placeholders, and action buttons (Heart, MessageCircle, Expand icons)
+- **Feed Cards**: Full-width image layout with separated header/footer containers, edge-to-edge visual alignment, and social media interactions (Heart, MessageCircle, Expand icons)
 - **Apple Glass Pill Navigation**: Modern bottom navigation with adaptive blur effects that work with light backgrounds, animated indicators, and floating plus button
 - **Camera Interface**: Full-screen react-native-vision-camera implementation with permission handling and location display
-- **Profile Tabs**: Dual-view interface with animated tab switching between "Streaks" and "Settings" views, using light card backgrounds
-- **Stats Cards**: Clean white metric display cards with colored accents showing streak count, total photos, and friend count with themed icons
+- **Profile Tabs**: Dual-view interface with animated tab switching between "Streaks" and "Settings" views, Friends button integration
+- **Friends Interface**: Three-tab layout with real-time updates, search functionality, and mutual friends discovery
 - **Photo Grid**: 3-column responsive grid layout with light card items for streak photos, featuring subtle shadows and borders
+- **Modal Components**: Comment modal, fullscreen image viewer, and notification system for enhanced user interactions
 
 ## AI Collaboration Tips
 
@@ -127,15 +138,15 @@ When requesting code reorganization:
 - [x] Add responsive design for multiple device sizes
 - [x] Add photo capture and storage functionality
 - [x] Apply Flare theme throughout the app
-- [ ] Add photo upload and storage integration
-- [ ] Create user authentication flow
-- [ ] Implement real-time streak tracking
+- [x] Add photo upload and storage integration
+- [x] Create user authentication flow
+- [x] Implement real-time streak tracking
 
 ### Phase 2: Social Features
 
-- [ ] Add friends system and friend requests
-- [ ] Implement push notifications for streak reminders
-- [ ] Create like/comment functionality
+- [x] Add friends system and friend requests
+- [x] Implement push notifications for streak reminders
+- [x] Create like/comment functionality
 - [ ] Add photo sharing to other platforms
 
 ### Phase 3: Advanced Features
@@ -191,9 +202,10 @@ npx expo start --dev-client
 - **Photo Orientation**: Dynamic photo preview rotation for landscape photos with properly positioned UI controls
 
 ### Current UI State
-- **FeedScreen**: Light, modern social media-style white cards with subtle shadows, avatars, photo placeholders, and action buttons with Flare branding
+- **FeedScreen**: Instagram-style full-width image layout with edge-to-edge visual alignment, separated header/footer containers, and comprehensive social interactions
 - **CameraScreen**: Full-screen camera with location display and friends-only indicator using Vision Camera
-- **ProfileScreen**: Light-themed two-tab interface (Streaks/Settings) with white stats cards, subtle shadows, and clean photo grid
+- **ProfileScreen**: Clean two-tab interface (Streaks/Settings) with Friends button integration, removed stats cards, and focused photo grid layout
+- **FriendsScreen**: Complete friends management with three-tab interface, real-time updates, search functionality, and mutual friends discovery
 - **BottomTabs**: Floating glass pill navigation with adaptive blur effects and animated active state indicators
 
 ## Notes for Future Development
@@ -232,6 +244,29 @@ npx expo start --dev-client
 3. **Post Creation**: Firestore document with photo URL, user data, timestamp
 4. **Real-time Display**: onSnapshot listener → Automatic feed updates for all users
 5. **Social Interactions**: Like system with real-time user ID tracking
+
+## Friends System Implementation
+
+### ✅ Complete Friends Management
+- **FriendsScreen.tsx**: Three-tab interface (Friends, Requests, Add Friends)
+- **Real-time Updates**: Live friend request notifications via Firestore subscriptions
+- **Search Functionality**: Username-based user search with filtered results
+- **Mutual Friends**: "People You May Know" feature showing friends of friends
+- **Request Management**: Send, accept, and decline friend requests with status tracking
+
+### 🔧 Friends Service Functions
+- `getUserFriends()`: Fetch user's complete friends list
+- `getFriendRequests()`: Get incoming and outgoing friend requests
+- `searchUsersByUsername()`: Search users by username with filtering
+- `sendFriendRequest()`: Send friend request with duplicate prevention
+- `acceptFriendRequest()`: Accept request and update both users' friend lists
+- `declineFriendRequest()`: Decline request and update status
+- `getMutualFriends()`: Calculate and return mutual friends with count
+
+### 📱 Profile Integration
+- **Removed Stats Cards**: Eliminated Current Streak, Total Photos, Friends count display
+- **Friends Button**: Added prominent Friends button in profile header with navigation
+- **Clean Layout**: Improved spacing and focus on photo grid and user info
 
 # Important Instruction Reminders
 Do what has been asked; nothing more, nothing less.
