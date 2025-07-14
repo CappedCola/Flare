@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
-  Animated
+  Animated,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -151,37 +153,40 @@ export const PostUploadScreen = ({ navigation, route }: PostUploadScreenProps) =
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme['background-basic-color-1'] }]}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: theme['border-basic-color-2'] }]}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={handleGoBack}
-          activeOpacity={0.7}
-        >
-          <ArrowLeft size={24} color={theme['text-primary-color'] || '#2C2C2C'} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme['text-primary-color'] }]}>
-          Share Your Moment
-        </Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: theme['border-basic-color-2'] }]}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={handleGoBack}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={24} color={theme['text-primary-color'] || '#2C2C2C'} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme['text-primary-color'] }]}>
+            Share Your Moment
+          </Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
-      <ScrollView 
+        <ScrollView 
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Photo Preview */}
-        <Card style={[styles.photoCard, { backgroundColor: theme['background-basic-color-3'] }]}>
-          <Image 
-            source={{ uri: photoUri }} 
-            style={[
-              styles.photoPreview,
-              photoOrientation === 'landscape' && styles.photoPreviewLandscape
-            ]}
-            resizeMode="cover"
-          />
-        </Card>
+        {/* Small Photo Preview Box */}
+        <View style={styles.photoContainer}>
+          <View style={[styles.smallPhotoBox, { backgroundColor: theme['background-basic-color-3'] }]}>
+            <Image 
+              source={{ uri: photoUri }} 
+              style={styles.smallPhotoPreview}
+              resizeMode="cover"
+            />
+          </View>
+        </View>
 
         {/* Form Fields */}
         <Layout style={[styles.formContainer, { backgroundColor: theme['background-basic-color-3'] }]}>
@@ -248,32 +253,36 @@ export const PostUploadScreen = ({ navigation, route }: PostUploadScreenProps) =
             </TouchableOpacity>
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
 
-      {/* Upload Button */}
-      <View style={[styles.uploadButtonContainer, { borderTopColor: theme['border-basic-color-2'] }]}>
-        <Button
-          style={[styles.uploadButton, { backgroundColor: theme['color-primary-500'] }]}
-          onPress={handleUpload}
-          disabled={isUploading}
-          accessoryLeft={isUploading ? 
-            () => <Spinner size='small' status='control' /> : 
-            () => <Upload size={20} color="#FFFFFF" />
-          }
-        >
-          {() => (
-            <Text style={styles.uploadButtonText}>
-              {isUploading ? 'Uploading...' : 'Upload'}
-            </Text>
-          )}
-        </Button>
-      </View>
+        {/* Upload Button */}
+        <View style={[styles.uploadButtonContainer, { borderTopColor: theme['border-basic-color-2'] }]}>
+          <Button
+            style={[styles.uploadButton, { backgroundColor: theme['color-primary-500'] }]}
+            onPress={handleUpload}
+            disabled={isUploading}
+            accessoryLeft={isUploading ? 
+              () => <Spinner size='small' status='control' /> : 
+              () => <Upload size={20} color="#FFFFFF" />
+            }
+          >
+            {() => (
+              <Text style={styles.uploadButtonText}>
+                {isUploading ? 'Uploading...' : 'Upload'}
+              </Text>
+            )}
+          </Button>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  keyboardView: {
     flex: 1,
   },
   header: {
@@ -304,9 +313,14 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
-  photoCard: {
+  photoContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  smallPhotoBox: {
+    width: 120,
+    height: 120,
     borderRadius: 16,
-    marginBottom: 20,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -314,13 +328,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  photoPreview: {
+  smallPhotoPreview: {
     width: '100%',
-    height: 200,
-    borderRadius: 12,
-  },
-  photoPreviewLandscape: {
-    height: 150,
+    height: '100%',
   },
   formContainer: {
     borderRadius: 16,
