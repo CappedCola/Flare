@@ -1,7 +1,7 @@
 import React from 'react';
 import { FEATURE_FLAGS, logCameraEnvironment } from '../config/featureFlags';
 
-export const CameraScreen = () => {
+export const CameraScreen = ({ navigation }: { navigation: any }) => {
   const [shouldFallback, setShouldFallback] = React.useState(false);
   
   // Log the current environment for debugging
@@ -28,17 +28,17 @@ export const CameraScreen = () => {
     // Use Vision Camera for development builds
     try {
       const { VisionCameraScreen } = require('./VisionCameraScreen');
-      return React.createElement(VisionCameraScreen);
+      return React.createElement(VisionCameraScreen, { navigation });
     } catch (error) {
       console.warn('Vision Camera module failed to load, falling back to Expo Camera:', error);
       // Fallback to Expo Camera if Vision Camera fails to load
       const { ExpoCameraScreen } = require('./ExpoCameraScreen');
-      return React.createElement(ExpoCameraScreen);
+      return React.createElement(ExpoCameraScreen, { navigation });
     }
   }
   
   // Use Expo Camera for Expo Go compatibility or when Vision Camera fails
   console.log('🔵 Using Expo Camera fallback');
   const { ExpoCameraScreen } = require('./ExpoCameraScreen');
-  return React.createElement(ExpoCameraScreen);
+  return React.createElement(ExpoCameraScreen, { navigation });
 };
