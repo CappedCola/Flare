@@ -340,13 +340,19 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
     }, [showNavigation])
   );
 
-  // Expose takePicture function to be called from navigation
+  // Expose takePicture function to be called from navigation and clear photo state
   useFocusEffect(
     React.useCallback(() => {
       // Store the takePicture function in a global reference
       // This allows the bottom tab navigation to trigger it
       console.log('Setting up global camera capture function');
       (global as any).cameraCapture = takePicture;
+      
+      // Clear any existing photo state when returning to camera screen
+      console.log('Clearing previous photo state');
+      setCapturedPhoto(null);
+      setShowPreview(false);
+      setPhotoOrientation('portrait');
       
       return () => {
         console.log('Cleaning up global camera capture function');
