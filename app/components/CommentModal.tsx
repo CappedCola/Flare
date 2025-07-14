@@ -13,10 +13,28 @@ import {
 } from 'react-native';
 import { Text, Avatar, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Send, Heart } from 'lucide-react-native';
+import { X, Send, Heart, ChevronDown, Smile, Image, AtSign } from 'lucide-react-native';
 import { Comment, Post } from '../types';
 import { addComment } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
+
+// Helper function to format relative time (e.g., "17h", "3d", "1w")
+const getTimeAgo = (date: Date): string => {
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) {
+    return `${diffInSeconds}s`;
+  } else if (diffInSeconds < 3600) {
+    return `${Math.floor(diffInSeconds / 60)}m`;
+  } else if (diffInSeconds < 86400) {
+    return `${Math.floor(diffInSeconds / 3600)}h`;
+  } else if (diffInSeconds < 604800) {
+    return `${Math.floor(diffInSeconds / 86400)}d`;
+  } else {
+    return `${Math.floor(diffInSeconds / 604800)}w`;
+  }
+};
 
 interface CommentModalProps {
   visible: boolean;
@@ -42,53 +60,63 @@ const CommentItem = ({ comment, onLike }: CommentItemProps) => {
   return (
     <View style={styles.commentItem}>
       <Avatar
-        size="small"
-        source={{ uri: comment.userAvatar || 'https://via.placeholder.com/32' }}
+        size="medium"
+        source={{ uri: comment.userAvatar || 'https://via.placeholder.com/40' }}
         style={styles.commentAvatar}
       />
       <View style={styles.commentContent}>
         <View style={styles.commentHeader}>
           <Text
-            category="s2"
+            category="s1"
             style={[styles.commentUsername, { color: theme['text-primary-color'] }]}
           >
             {comment.username}
           </Text>
           <Text
-            category="c2"
+            category="c1"
             style={[styles.commentTime, { color: theme['text-secondary-color'] }]}
           >
             {comment.createdAt instanceof Date 
-              ? comment.createdAt.toLocaleDateString() 
-              : new Date(comment.createdAt).toLocaleDateString()}
+              ? getTimeAgo(comment.createdAt) 
+              : getTimeAgo(new Date(comment.createdAt))}
           </Text>
         </View>
         <Text
-          category="p2"
+          category="p1"
           style={[styles.commentText, { color: theme['text-primary-color'] }]}
         >
           {comment.text}
         </Text>
         <View style={styles.commentActions}>
+          <TouchableOpacity style={styles.replyButton}>
+            <Text
+              category="c1"
+              style={[styles.replyText, { color: theme['text-secondary-color'] }]}
+            >
+              Reply
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.commentLikeButton} onPress={handleLike}>
             <Heart
-              size={14}
+              size={16}
               color={isLiked ? theme['color-primary-500'] : theme['color-basic-600']}
               fill={isLiked ? theme['color-primary-500'] : 'none'}
             />
-            <Text
-              category="c2"
-              style={[
-                styles.commentLikeText,
-                {
-                  color: isLiked
-                    ? theme['color-primary-500']
-                    : theme['color-basic-600'],
-                },
-              ]}
-            >
-              {comment.likes.length > 0 ? comment.likes.length : ''}
-            </Text>
+            {comment.likes.length > 0 && (
+              <Text
+                category="c1"
+                style={[
+                  styles.commentLikeText,
+                  {
+                    color: isLiked
+                      ? theme['color-primary-500']
+                      : theme['color-basic-600'],
+                  },
+                ]}
+              >
+                {comment.likes.length.toLocaleString()}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -122,8 +150,43 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
     }
   }, [visible]);
 
+  // Helper function to deduplicate comments by ID with additional safety
+  const deduplicateComments = (comments: Comment[]): Comment[] => {
+    if (!comments || comments.length === 0) return [];
+    
+    const seen = new Set<string>();
+    const uniqueComments = comments.filter(comment => {
+      // Skip comments without valid IDs
+      if (!comment?.id) return false;
+      
+      if (seen.has(comment.id)) {
+        if (__DEV__) console.log('🔍 [DEBUG] Filtering duplicate comment:', comment.id);
+        return false;
+      }
+      seen.add(comment.id);
+      return true;
+    });
+    
+    if (__DEV__ && uniqueComments.length !== comments.length) {
+      console.log('🔧 [DEBUG] Deduplicated comments:', {
+        original: comments.length,
+        unique: uniqueComments.length,
+        duplicatesRemoved: comments.length - uniqueComments.length
+      });
+    }
+    
+    return uniqueComments;
+  };
+
   useEffect(() => {
-    setComments(post.comments || []);
+    const newComments = deduplicateComments(post.comments || []);
+    // Only update if there's actually a change to prevent unnecessary renders
+    setComments(prevComments => {
+      if (JSON.stringify(prevComments) === JSON.stringify(newComments)) {
+        return prevComments;
+      }
+      return newComments;
+    });
   }, [post.comments]);
 
   const handleClose = () => {
@@ -143,7 +206,8 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
     setIsSubmitting(true);
     try {
       const newComment = await addComment(post.id, user.id, commentText.trim());
-      setComments(prev => [...prev, newComment]);
+      // Remove manual local state update to prevent duplicate keys
+      // The real-time listener will automatically update post.comments and trigger useEffect
       setCommentText('');
       onCommentAdded?.(newComment);
     } catch (error) {
@@ -180,26 +244,29 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
           <SafeAreaView style={styles.safeArea} edges={['top']}>
             {/* Header */}
             <View style={[styles.header, { borderBottomColor: theme['border-basic-color-4'] }]}>
-              <Text category="h6" style={[styles.headerTitle, { color: theme['text-primary-color'] }]}>
-                Comments
-              </Text>
+              <View style={styles.headerLeft}>
+                <Text category="h5" style={[styles.commentCount, { color: theme['text-primary-color'] }]}>
+                  {comments.length} comment{comments.length !== 1 ? 's' : ''}
+                </Text>
+                <ChevronDown size={18} color={theme['text-primary-color']} style={styles.dropdownIcon} />
+              </View>
               <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-                <X size={24} color={theme['text-primary-color']} />
+                <X size={26} color={theme['text-primary-color']} />
               </TouchableOpacity>
             </View>
 
             {/* Post Preview */}
             <View style={[styles.postPreview, { borderBottomColor: theme['border-basic-color-4'] }]}>
               <Avatar
-                size="small"
-                source={{ uri: post.userAvatar || 'https://via.placeholder.com/32' }}
+                size="medium"
+                source={{ uri: post.userAvatar || 'https://via.placeholder.com/40' }}
                 style={styles.postAvatar}
               />
               <View style={styles.postInfo}>
-                <Text category="s2" style={[styles.postUsername, { color: theme['text-primary-color'] }]}>
+                <Text category="s1" style={[styles.postUsername, { color: theme['text-primary-color'] }]}>
                   {post.username}
                 </Text>
-                <Text category="p2" style={[styles.postCaption, { color: theme['text-secondary-color'] }]}>
+                <Text category="p1" style={[styles.postCaption, { color: theme['text-secondary-color'] }]}>
                   {post.caption || 'No caption'}
                 </Text>
               </View>
@@ -214,7 +281,7 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
               showsVerticalScrollIndicator={false}
               ListEmptyComponent={
                 <View style={styles.emptyState}>
-                  <Text category="p1" style={[styles.emptyText, { color: theme['text-secondary-color'] }]}>
+                  <Text category="s1" style={[styles.emptyText, { color: theme['text-secondary-color'] }]}>
                     No comments yet. Be the first to comment!
                   </Text>
                 </View>
@@ -227,40 +294,39 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
               style={[styles.inputContainer, { borderTopColor: theme['border-basic-color-4'] }]}
             >
               <Avatar
-                size="small"
-                source={{ uri: user?.avatar || 'https://via.placeholder.com/32' }}
+                size="medium"
+                source={{ uri: user?.avatar || 'https://via.placeholder.com/40' }}
                 style={styles.inputAvatar}
               />
-              <TextInput
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor: theme['background-basic-color-2'],
-                    color: theme['text-primary-color'],
-                    borderColor: theme['border-basic-color-4'],
-                  },
-                ]}
-                placeholder="Add a comment..."
-                placeholderTextColor={theme['text-secondary-color']}
-                value={commentText}
-                onChangeText={setCommentText}
-                multiline
-                maxLength={500}
-              />
-              <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  {
-                    backgroundColor: commentText.trim()
-                      ? theme['color-primary-500']
-                      : theme['color-basic-300'],
-                  },
-                ]}
-                onPress={handleSubmitComment}
-                disabled={!commentText.trim() || isSubmitting}
-              >
-                <Send size={16} color="#FFFFFF" />
-              </TouchableOpacity>
+              <View style={styles.inputSection}>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: theme['background-basic-color-2'],
+                      color: theme['text-primary-color'],
+                      borderColor: theme['border-basic-color-4'],
+                    },
+                  ]}
+                  placeholder="Add comment..."
+                  placeholderTextColor={theme['text-secondary-color']}
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  multiline
+                  maxLength={500}
+                />
+                <View style={styles.inputActions}>
+                  <TouchableOpacity style={styles.inputActionButton}>
+                    <Smile size={22} color={theme['text-secondary-color']} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.inputActionButton}>
+                    <Image size={22} color={theme['text-secondary-color']} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.inputActionButton}>
+                    <AtSign size={22} color={theme['text-secondary-color']} />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </KeyboardAvoidingView>
           </SafeAreaView>
         </Animated.View>
@@ -276,7 +342,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    height: '90%',
+    height: '95%',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: 'hidden',
@@ -288,12 +354,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
     borderBottomWidth: 1,
   },
-  headerTitle: {
-    fontWeight: '600',
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commentCount: {
+    fontWeight: '700',
+    fontSize: 20,
+  },
+  dropdownIcon: {
+    marginLeft: 8,
   },
   closeButton: {
     padding: 4,
@@ -301,34 +375,36 @@ const styles = StyleSheet.create({
   postPreview: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
   },
   postAvatar: {
-    marginRight: 12,
+    marginRight: 16,
   },
   postInfo: {
     flex: 1,
   },
   postUsername: {
-    fontWeight: '600',
-    marginBottom: 2,
+    fontWeight: '700',
+    marginBottom: 4,
+    fontSize: 16,
   },
   postCaption: {
-    lineHeight: 18,
+    lineHeight: 20,
+    fontSize: 15,
   },
   commentsList: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   commentItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 12,
+    paddingVertical: 16,
   },
   commentAvatar: {
-    marginRight: 12,
+    marginRight: 16,
   },
   commentContent: {
     flex: 1,
@@ -336,58 +412,87 @@ const styles = StyleSheet.create({
   commentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   commentUsername: {
-    fontWeight: '600',
-    marginRight: 8,
+    fontWeight: '700',
+    marginRight: 12,
+    fontSize: 16,
   },
   commentTime: {
-    fontSize: 12,
+    fontSize: 14,
+    fontWeight: '500',
   },
   commentText: {
-    lineHeight: 18,
-    marginBottom: 6,
+    lineHeight: 22,
+    marginBottom: 10,
+    fontSize: 15,
   },
   commentActions: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
+  replyButton: {
+    paddingVertical: 4,
+  },
+  replyText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   commentLikeButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 4,
   },
   commentLikeText: {
-    marginLeft: 4,
-    fontSize: 12,
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '600',
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 60,
   },
   emptyText: {
     textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '500',
   },
   inputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderTopWidth: 1,
   },
   inputAvatar: {
-    marginRight: 12,
-    marginBottom: 4,
+    marginRight: 16,
+    marginTop: 2,
+  },
+  inputSection: {
+    flex: 1,
   },
   textInput: {
-    flex: 1,
     borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginRight: 8,
-    maxHeight: 100,
+    borderRadius: 25,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    marginBottom: 12,
+    maxHeight: 120,
     fontSize: 16,
+    lineHeight: 20,
+  },
+  inputActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    gap: 20,
+    paddingLeft: 6,
+  },
+  inputActionButton: {
+    padding: 8,
   },
   sendButton: {
     width: 36,

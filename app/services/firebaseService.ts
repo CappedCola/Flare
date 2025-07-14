@@ -1,4 +1,4 @@
-import { User, Post, Comment, Streak, PhotoMetadata, PersonalPost } from '../types';
+import { User, Post, Comment, Streak, PhotoMetadata, PersonalPost, FriendRequest, MutualFriend } from '../types';
 import { auth, firestore, storage } from '../config/firebase';
 import { formatTimeAgo } from '../utils/helpers';
 // React Native Firebase v22+ modular API imports
@@ -707,7 +707,8 @@ export const subscribeToPersonalPosts = (userId: string, callback: (posts: Perso
   
   return onSnapshot(q,
     (snapshot) => {
-      const personalPosts: PersonalPost[] = snapshot.docs.map(doc => {
+      // Add null check for snapshot
+      const personalPosts: PersonalPost[] = snapshot?.docs?.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -730,12 +731,22 @@ export const subscribeToPersonalPosts = (userId: string, callback: (posts: Perso
           senderInfo: data.senderInfo,
           status: data.status || 'sent'
         };
-      });
+      }) || [];
       
       callback(personalPosts);
     },
     (error) => {
-      console.error('Error in personal posts subscription:', error);
+      if (__DEV__) console.error('Error in personal posts subscription:', error);
+      
+      // Handle permission denied errors gracefully
+      if (error.code === 'firestore/permission-denied') {
+        if (__DEV__) console.warn('Permission denied for personal posts subscription - calling callback with empty array');
+        // Call callback with empty array instead of error for permission issues
+        callback([]);
+        return;
+      }
+      
+      // Only call onError for actual errors, not permission issues
       if (onError) onError(new Error('Failed to subscribe to personal posts'));
     }
   );
@@ -778,5 +789,336 @@ export const subscribeToAuthState = (callback: (user: User | null) => void) => {
     if (__DEV__) console.error('Error setting up auth state listener:', error);
     // Return a no-op function if auth state subscription fails
     return () => {};
+  }
+};
+
+// Friends Services
+export const searchUsersByUsername = async (searchQuery: string): Promise<User[]> => {
+  try {
+    if (!searchQuery.trim()) return [];
+    
+    const normalizedQuery = searchQuery.toLowerCase().trim();
+    const q = query(
+      collection(firestore, 'users'),
+      where('username', '>=', normalizedQuery),
+      where('username', '<=', normalizedQuery + '\uf8ff'),
+      limit(10)
+    );
+    
+    const snapshot = await getDocs(q);
+    return snapshot?.docs?.map(doc => ({ id: doc.id, ...doc.data() } as User)) || [];
+  } catch (error: any) {
+    if (__DEV__) console.error('Error searching users by username:', error);
+    
+    // Return empty array for permission issues instead of throwing
+    if (error.code === 'firestore/permission-denied') {
+      if (__DEV__) console.warn('Permission denied for user search - returning empty array');
+      return [];
+    }
+    
+    throw new Error('Failed to search users');
+  }
+};
+
+export const sendFriendRequest = async (fromUserId: string, toUsername: string): Promise<void> => {
+  try {
+    // First find the user by username
+    const usersRef = collection(firestore, 'users');
+    const q = query(usersRef, where('username', '==', toUsername.toLowerCase()));
+    const userSnapshot = await getDocs(q);
+    
+    if (!userSnapshot || userSnapshot.empty) {
+      throw new Error('User not found');
+    }
+    
+    const toUserDoc = userSnapshot.docs[0];
+    const toUserId = toUserDoc.id;
+    const toUserData = toUserDoc.data();
+    
+    // Get sender data
+    const fromUserDoc = await getDoc(doc(firestore, 'users', fromUserId));
+    if (!fromUserDoc.exists()) {
+      throw new Error('Sender not found');
+    }
+    const fromUserData = fromUserDoc.data();
+    
+    // Check if they're already friends
+    if (fromUserData?.friends?.includes(toUserId)) {
+      throw new Error('Already friends with this user');
+    }
+    
+    // Check if friend request already exists
+    const existingRequestQuery = query(
+      collection(firestore, 'friend_requests'),
+      where('fromUserId', '==', fromUserId),
+      where('toUserId', '==', toUserId),
+      where('status', '==', 'pending')
+    );
+    const existingRequest = await getDocs(existingRequestQuery);
+    
+    if (existingRequest && !existingRequest.empty) {
+      throw new Error('Friend request already sent');
+    }
+    
+    // Create friend request
+    const friendRequest: Omit<FriendRequest, 'id'> = {
+      fromUserId,
+      fromUsername: fromUserData?.username || 'Unknown',
+      toUserId,
+      toUsername: toUserData?.username || 'Unknown',
+      status: 'pending',
+      createdAt: new Date(),
+    };
+    
+    await addDoc(collection(firestore, 'friend_requests'), friendRequest);
+  } catch (error: any) {
+    if (__DEV__) console.error('Error sending friend request:', error);
+    throw new Error(error.message || 'Failed to send friend request');
+  }
+};
+
+export const acceptFriendRequest = async (requestId: string): Promise<void> => {
+  try {
+    const requestRef = doc(firestore, 'friend_requests', requestId);
+    const requestDoc = await getDoc(requestRef);
+    
+    if (!requestDoc.exists()) {
+      throw new Error('Friend request not found');
+    }
+    
+    const requestData = requestDoc.data() as FriendRequest;
+    
+    // Update both users' friends arrays
+    const fromUserRef = doc(firestore, 'users', requestData.fromUserId);
+    const toUserRef = doc(firestore, 'users', requestData.toUserId);
+    
+    await Promise.all([
+      updateDoc(fromUserRef, {
+        friends: arrayUnion(requestData.toUserId)
+      }),
+      updateDoc(toUserRef, {
+        friends: arrayUnion(requestData.fromUserId)
+      }),
+      updateDoc(requestRef, {
+        status: 'accepted'
+      })
+    ]);
+  } catch (error: any) {
+    if (__DEV__) console.error('Error accepting friend request:', error);
+    throw new Error('Failed to accept friend request');
+  }
+};
+
+export const declineFriendRequest = async (requestId: string): Promise<void> => {
+  try {
+    const requestRef = doc(firestore, 'friend_requests', requestId);
+    await updateDoc(requestRef, {
+      status: 'declined'
+    });
+  } catch (error: any) {
+    if (__DEV__) console.error('Error declining friend request:', error);
+    throw new Error('Failed to decline friend request');
+  }
+};
+
+export const getUserFriends = async (userId: string): Promise<User[]> => {
+  try {
+    const userDoc = await getDoc(doc(firestore, 'users', userId));
+    if (!userDoc || !userDoc.exists()) {
+      if (__DEV__) console.warn('User document not found, returning empty friends list');
+      return [];
+    }
+    
+    const userData = userDoc.data();
+    const friendIds = userData?.friends || [];
+    
+    if (friendIds.length === 0) {
+      return [];
+    }
+    
+    // Get friend user documents
+    const friendPromises = friendIds.map((friendId: string) => 
+      getDoc(doc(firestore, 'users', friendId))
+    );
+    
+    const friendDocs = await Promise.all(friendPromises);
+    return friendDocs
+      .filter(doc => doc && doc.exists())
+      .map(doc => ({ id: doc.id, ...doc.data() } as User));
+  } catch (error: any) {
+    if (__DEV__) console.error('Error getting user friends:', error);
+    
+    // Return empty array for permission issues instead of throwing
+    if (error.code === 'firestore/permission-denied') {
+      if (__DEV__) console.warn('Permission denied for user friends - returning empty array');
+      return [];
+    }
+    
+    throw new Error('Failed to load friends');
+  }
+};
+
+export const getFriendRequests = async (userId: string): Promise<{ incoming: FriendRequest[], outgoing: FriendRequest[] }> => {
+  try {
+    // Get incoming requests
+    const incomingQuery = query(
+      collection(firestore, 'friend_requests'),
+      where('toUserId', '==', userId),
+      where('status', '==', 'pending')
+    );
+    
+    // Get outgoing requests
+    const outgoingQuery = query(
+      collection(firestore, 'friend_requests'),
+      where('fromUserId', '==', userId),
+      where('status', '==', 'pending')
+    );
+    
+    const [incomingSnapshot, outgoingSnapshot] = await Promise.all([
+      getDocs(incomingQuery),
+      getDocs(outgoingQuery)
+    ]);
+    
+    // Add null checks for snapshots
+    const incoming: FriendRequest[] = incomingSnapshot?.docs?.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as FriendRequest)) || [];
+    
+    const outgoing: FriendRequest[] = outgoingSnapshot?.docs?.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as FriendRequest)) || [];
+    
+    return { incoming, outgoing };
+  } catch (error: any) {
+    if (__DEV__) console.error('Error getting friend requests:', error);
+    
+    // Return empty arrays instead of throwing error for permission issues
+    if (error.code === 'firestore/permission-denied') {
+      if (__DEV__) console.warn('Permission denied for friend requests - returning empty arrays');
+      return { incoming: [], outgoing: [] };
+    }
+    
+    throw new Error('Failed to load friend requests');
+  }
+};
+
+export const subscribeToFriendRequests = (userId: string, callback: (requests: { incoming: FriendRequest[], outgoing: FriendRequest[] }) => void) => {
+  const incomingQuery = query(
+    collection(firestore, 'friend_requests'),
+    where('toUserId', '==', userId),
+    where('status', '==', 'pending')
+  );
+  
+  const outgoingQuery = query(
+    collection(firestore, 'friend_requests'),
+    where('fromUserId', '==', userId),
+    where('status', '==', 'pending')
+  );
+  
+  let incomingRequests: FriendRequest[] = [];
+  let outgoingRequests: FriendRequest[] = [];
+  
+  const unsubscribeIncoming = onSnapshot(
+    incomingQuery, 
+    (snapshot) => {
+      // Add null check for snapshot and docs
+      incomingRequests = snapshot?.docs?.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as FriendRequest)) || [];
+      callback({ incoming: incomingRequests, outgoing: outgoingRequests });
+    },
+    (error) => {
+      if (__DEV__) console.error('Error in incoming friend requests subscription:', error);
+      // On error, call callback with empty arrays
+      callback({ incoming: [], outgoing: outgoingRequests });
+    }
+  );
+  
+  const unsubscribeOutgoing = onSnapshot(
+    outgoingQuery, 
+    (snapshot) => {
+      // Add null check for snapshot and docs
+      outgoingRequests = snapshot?.docs?.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as FriendRequest)) || [];
+      callback({ incoming: incomingRequests, outgoing: outgoingRequests });
+    },
+    (error) => {
+      if (__DEV__) console.error('Error in outgoing friend requests subscription:', error);
+      // On error, call callback with empty arrays
+      callback({ incoming: incomingRequests, outgoing: [] });
+    }
+  );
+  
+  return () => {
+    unsubscribeIncoming();
+    unsubscribeOutgoing();
+  };
+};
+
+export const getMutualFriends = async (userId: string): Promise<MutualFriend[]> => {
+  try {
+    // Get current user's friends
+    const currentUserFriends = await getUserFriends(userId);
+    
+    if (currentUserFriends.length === 0) {
+      return [];
+    }
+    
+    const currentUserFriendIds = currentUserFriends.map(friend => friend.id);
+    const mutualFriendsMap = new Map<string, MutualFriend>();
+    
+    // For each of user's friends, get their friends list
+    for (const friend of currentUserFriends) {
+      try {
+        const friendsFriends = await getUserFriends(friend.id);
+        
+        // Check each friend's friend to see if they're a mutual connection
+        for (const friendsFriend of friendsFriends) {
+          // Skip if it's the current user or already a friend
+          if (friendsFriend.id === userId || currentUserFriendIds.includes(friendsFriend.id)) {
+            continue;
+          }
+          
+          // Add or update mutual friend
+          if (mutualFriendsMap.has(friendsFriend.id)) {
+            const existing = mutualFriendsMap.get(friendsFriend.id)!;
+            existing.mutualFriends.push(friend.username);
+            existing.mutualCount++;
+          } else {
+            mutualFriendsMap.set(friendsFriend.id, {
+              user: friendsFriend,
+              mutualFriends: [friend.username],
+              mutualCount: 1
+            });
+          }
+        }
+      } catch (error) {
+        // Skip this friend if we can't get their friends list
+        if (__DEV__) console.warn(`Could not get friends for user ${friend.id}:`, error);
+        continue;
+      }
+    }
+    
+    // Convert map to array and sort by mutual count (most mutuals first)
+    const mutuals = Array.from(mutualFriendsMap.values())
+      .sort((a, b) => b.mutualCount - a.mutualCount)
+      .slice(0, 10); // Limit to top 10 mutual friends
+    
+    return mutuals;
+  } catch (error: any) {
+    if (__DEV__) console.error('Error getting mutual friends:', error);
+    
+    // Return empty array for permission issues
+    if (error.code === 'firestore/permission-denied') {
+      if (__DEV__) console.warn('Permission denied for mutual friends - returning empty array');
+      return [];
+    }
+    
+    throw new Error('Failed to load mutual friends');
   }
 };

@@ -10,6 +10,7 @@ import { SignInScreen } from '../screens/SignInScreen';
 import { PostUploadScreen } from '../screens/PostUploadScreen';
 import { PhotoSendScreen } from '../screens/PhotoSendScreen';
 import { PhotoEditScreen } from '../screens/PhotoEditScreen';
+import { FriendsScreen } from '../screens/FriendsScreen';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { NotificationModal } from '../components/NotificationModal';
@@ -58,6 +59,13 @@ const MainNavigator = () => {
         options={{
           presentation: 'modal',
           animation: 'slide_from_bottom'
+        }}
+      />
+      <MainStack.Screen 
+        name="Friends" 
+        component={FriendsScreen}
+        options={{
+          animation: 'slide_from_right'
         }}
       />
     </MainStack.Navigator>
