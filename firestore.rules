@@ -79,10 +79,50 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     
+    // User statistics for achievements and leaderboards
+    match /userStatistics/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Allow reading others' stats for leaderboards
+      allow read: if request.auth != null;
+    }
+    
+    // Achievement notifications
+    match /achievementNotifications/{notificationId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Custom prompts (community-created)
+    match /customPrompts/{promptId} {
+      // All users can read approved prompts
+      allow read: if request.auth != null;
+      // Users can create prompts
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.createdBy;
+      // Users can update their own prompts
+      allow update: if request.auth != null && request.auth.uid == resource.data.createdBy;
+    }
+    
+    // Prompt ratings
+    match /promptRatings/{ratingId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // User prompt history (favorites, usage tracking)
+    match /userPromptHistory/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Competition events
+    match /competitions/{competitionId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+    
     // Deny all other reads/writes
     match /{document=**} {
       allow read, write: if false;
     }
   }
-}
 }

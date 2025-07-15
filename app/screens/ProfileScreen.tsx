@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Dimensions, View, StatusBar, TouchableOpacity, 
 import { Text, Avatar, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // import PagerView from 'react-native-pager-view';
-import { Bell, Settings, Shield, HelpCircle, Info, User, Camera, Trophy, Users } from 'lucide-react-native';
+import { Bell, Settings, Shield, HelpCircle, Info, User, Camera, Trophy, Users, Flame } from 'lucide-react-native';
 import { pillNavHeight } from '../constants/navigation';
 import { User as UserType } from '../types';
 import { getUserPhotos } from '../services/firebaseService';
@@ -96,6 +96,10 @@ export const ProfileScreen = () => {
 
   const handleMenuPress = (item: string) => {
     console.log(`Pressed ${item}`);
+    
+    if (item === 'FlareChains') {
+      navigation.navigate('FlareHome' as never);
+    }
   };
 
   // Load user photos
@@ -237,6 +241,12 @@ export const ProfileScreen = () => {
           icon={Settings}
           title="Account Settings"
           onPress={() => handleMenuPress('Account')}
+          theme={theme}
+        />
+        <MenuItem 
+          icon={Flame}
+          title="Flare Chains"
+          onPress={() => handleMenuPress('FlareChains')}
           theme={theme}
         />
         <MenuItem 

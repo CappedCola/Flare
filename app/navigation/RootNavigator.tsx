@@ -11,6 +11,14 @@ import { PostUploadScreen } from '../screens/PostUploadScreen';
 import { PhotoSendScreen } from '../screens/PhotoSendScreen';
 import { PhotoEditScreen } from '../screens/PhotoEditScreen';
 import { FriendsScreen } from '../screens/FriendsScreen';
+import { FlareCreationScreen } from '../screens/flare/FlareCreationScreen';
+import { FlareChainViewScreen } from '../screens/flare/FlareChainViewScreen';
+import { FlareResponseScreen } from '../screens/flare/FlareResponseScreen';
+import { FlareChatScreen } from '../screens/flare/FlareChatScreen';
+import { FlareCompletionScreen } from '../screens/flare/FlareCompletionScreen';
+import { FlareHomeScreen } from '../screens/flare/FlareHomeScreen';
+import { FlareDiscoveryScreen } from '../screens/flare/FlareDiscoveryScreen';
+import { FlareLeaderboardScreen } from '../screens/flare/FlareLeaderboardScreen';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { NotificationModal } from '../components/NotificationModal';
@@ -64,6 +72,64 @@ const MainNavigator = () => {
       <MainStack.Screen 
         name="Friends" 
         component={FriendsScreen}
+        options={{
+          animation: 'slide_from_right'
+        }}
+      />
+      <MainStack.Screen 
+        name="FlareCreation" 
+        component={FlareCreationScreen}
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom'
+        }}
+      />
+      <MainStack.Screen 
+        name="FlareChainView" 
+        component={FlareChainViewScreen}
+        options={{
+          animation: 'slide_from_right'
+        }}
+      />
+      <MainStack.Screen 
+        name="FlareResponse" 
+        component={FlareResponseScreen}
+        options={{
+          animation: 'slide_from_right'
+        }}
+      />
+      <MainStack.Screen 
+        name="FlareChat" 
+        component={FlareChatScreen}
+        options={{
+          animation: 'slide_from_right'
+        }}
+      />
+      <MainStack.Screen 
+        name="FlareCompletion" 
+        component={FlareCompletionScreen}
+        options={{
+          animation: 'slide_from_right',
+          gestureEnabled: false
+        }}
+      />
+      <MainStack.Screen 
+        name="FlareHome" 
+        component={FlareHomeScreen}
+        options={{
+          animation: 'slide_from_right'
+        }}
+      />
+      <MainStack.Screen 
+        name="FlareDiscovery" 
+        component={FlareDiscoveryScreen}
+        options={{
+          animation: 'slide_from_right'
+        }}
+      />
+      <MainStack.Screen 
+        name="FlareLeaderboard" 
+        component={FlareLeaderboardScreen}
         options={{
           animation: 'slide_from_right'
         }}

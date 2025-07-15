@@ -12,8 +12,9 @@ import {
 } from 'react-native';
 import { Text, Avatar, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Heart, MessageCircle, Share } from 'lucide-react-native';
-import { Post, Comment } from '../types';
+import { X, Heart, MessageCircle, Share, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { Post, Comment, ChainPhoto } from '../types';
+import { PhotoReactions } from './PhotoReactions';
 
 // Helper function to safely count unique comments
 const getUniqueCommentCount = (comments: Comment[]): number => {
@@ -25,11 +26,17 @@ const getUniqueCommentCount = (comments: Comment[]): number => {
 interface FullscreenImageViewerProps {
   visible: boolean;
   onClose: () => void;
-  post: Post;
+  post?: Post;
+  chainPhoto?: ChainPhoto;
+  chainPhotos?: ChainPhoto[];
+  currentPhotoIndex?: number;
   onLike?: (postId: string) => void;
   onComment?: (postId: string) => void;
-  onShare?: (post: Post) => void;
+  onShare?: (post: Post | ChainPhoto) => void;
+  onReactionAdd?: (photoId: string, emoji: string) => void;
+  onNavigate?: (direction: 'prev' | 'next') => void;
   currentUserId?: string | null;
+  currentUsername?: string;
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -38,24 +45,45 @@ export const FullscreenImageViewer = ({
   visible,
   onClose,
   post,
+  chainPhoto,
+  chainPhotos,
+  currentPhotoIndex = 0,
   onLike,
   onComment,
   onShare,
+  onReactionAdd,
+  onNavigate,
   currentUserId,
+  currentUsername = 'Current User',
 }: FullscreenImageViewerProps) => {
   const theme = useTheme();
   
-  // Initialize like state based on whether current user has liked this post
+  // Determine which data to use - post or chainPhoto
+  const displayData = chainPhoto || post;
+  const isChainPhoto = !!chainPhoto;
+  
+  // Initialize like state based on whether current user has liked this post/photo
   const [isLiked, setIsLiked] = React.useState(
-    currentUserId ? post.likes.includes(currentUserId) : false
+    currentUserId && displayData ? displayData.likes.includes(currentUserId) : false
   );
   const [showOverlay, setShowOverlay] = React.useState(true);
   
-  // Update like state when post data changes (from Firebase real-time updates)
+  // Update like state when data changes (from Firebase real-time updates)
   React.useEffect(() => {
-    const userHasLiked = currentUserId ? post.likes.includes(currentUserId) : false;
+    if (!displayData || !currentUserId) return;
+    const userHasLiked = displayData.likes.includes(currentUserId);
     setIsLiked(userHasLiked);
-  }, [post.likes, currentUserId]);
+  }, [displayData?.likes, currentUserId]);
+
+  // Navigation helpers for chain photos
+  const canNavigatePrev = isChainPhoto && chainPhotos && currentPhotoIndex > 0;
+  const canNavigateNext = isChainPhoto && chainPhotos && currentPhotoIndex < chainPhotos.length - 1;
+
+  const handleNavigate = (direction: 'prev' | 'next') => {
+    if (onNavigate) {
+      onNavigate(direction);
+    }
+  };
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -177,17 +205,24 @@ export const FullscreenImageViewer = ({
   };
 
   const handleLike = () => {
+    if (!displayData) return;
     // Don't do optimistic updates - let Firebase real-time listener handle UI updates
-    onLike?.(post.id);
+    onLike?.(displayData.id);
   };
 
   const handleComment = () => {
-    onComment?.(post.id);
+    if (!displayData) return;
+    onComment?.(displayData.id);
   };
 
   const handleShare = () => {
-    onShare?.(post);
+    if (!displayData) return;
+    onShare?.(displayData);
   };
+
+  if (!displayData) {
+    return null;
+  }
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
@@ -207,8 +242,29 @@ export const FullscreenImageViewer = ({
           {...panResponder.panHandlers}
         >
           <TouchableOpacity activeOpacity={1} onPress={handleImageTap} style={styles.imageTouchable}>
-            <Image source={{ uri: post.photoUrl }} style={styles.image} resizeMode="contain" />
+            <Image source={{ uri: displayData.photoUrl }} style={styles.image} resizeMode="contain" />
           </TouchableOpacity>
+
+          {/* Navigation arrows for chain photos */}
+          {isChainPhoto && (
+            <>
+              {canNavigatePrev && (
+                <Animated.View style={[styles.navigationButton, styles.prevButton, { opacity: fadeAnim }]}>
+                  <TouchableOpacity onPress={() => handleNavigate('prev')} style={styles.navButtonTouchable}>
+                    <ChevronLeft size={32} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+              
+              {canNavigateNext && (
+                <Animated.View style={[styles.navigationButton, styles.nextButton, { opacity: fadeAnim }]}>
+                  <TouchableOpacity onPress={() => handleNavigate('next')} style={styles.navButtonTouchable}>
+                    <ChevronRight size={32} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+            </>
+          )}
         </Animated.View>
 
         {/* Top Overlay */}
@@ -218,16 +274,21 @@ export const FullscreenImageViewer = ({
               <View style={styles.userInfo}>
                 <Avatar
                   size="small"
-                  source={{ uri: post.userAvatar || 'https://via.placeholder.com/32' }}
+                  source={{ uri: displayData.userAvatar || 'https://via.placeholder.com/32' }}
                   style={styles.avatar}
                 />
                 <View>
                   <Text category="s1" style={styles.username}>
-                    {post.username}
+                    {displayData.username}
                   </Text>
                   <Text category="c2" style={styles.timeAgo}>
-                    {post.timeAgo}
+                    {isChainPhoto ? `Position #${(chainPhoto as ChainPhoto).position}` : (post as Post).timeAgo}
                   </Text>
+                  {isChainPhoto && chainPhotos && (
+                    <Text category="c2" style={styles.photoCounter}>
+                      {currentPhotoIndex + 1} of {chainPhotos.length}
+                    </Text>
+                  )}
                 </View>
               </View>
               <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
@@ -240,12 +301,27 @@ export const FullscreenImageViewer = ({
         {/* Bottom Overlay */}
         <Animated.View style={[styles.bottomOverlay, { opacity: fadeAnim }]}>
           <SafeAreaView edges={['bottom']}>
-            {/* Caption */}
-            {post.caption && (
+            {/* Caption/Interpretation */}
+            {((post as Post)?.caption || (chainPhoto as ChainPhoto)?.interpretation) && (
               <View style={styles.captionContainer}>
                 <Text category="p1" style={styles.caption}>
-                  {post.caption}
+                  {isChainPhoto ? (chainPhoto as ChainPhoto).interpretation : (post as Post).caption}
                 </Text>
+              </View>
+            )}
+
+            {/* Chain Photo Reactions */}
+            {isChainPhoto && onReactionAdd && chainPhoto && currentUserId && (
+              <View style={styles.reactionsContainer}>
+                <PhotoReactions
+                  photoId={chainPhoto.id}
+                  currentUserId={currentUserId}
+                  currentUsername={currentUsername}
+                  reactions={chainPhoto.reactions}
+                  onReactionChange={() => {
+                    // Trigger refresh if needed
+                  }}
+                />
               </View>
             )}
 
@@ -258,17 +334,19 @@ export const FullscreenImageViewer = ({
                     color={isLiked ? '#FF4D4D' : '#FFFFFF'}
                     fill={isLiked ? '#FF4D4D' : 'none'}
                   />
-                  {post.likes.length > 0 && (
-                    <Text style={styles.actionText}>{post.likes.length}</Text>
+                  {displayData.likes.length > 0 && (
+                    <Text style={styles.actionText}>{displayData.likes.length}</Text>
                   )}
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.actionButton} onPress={handleComment}>
-                  <MessageCircle size={28} color="#FFFFFF" />
-                  {getUniqueCommentCount(post.comments) > 0 && (
-                    <Text style={styles.actionText}>{getUniqueCommentCount(post.comments)}</Text>
-                  )}
-                </TouchableOpacity>
+                {!isChainPhoto && (
+                  <TouchableOpacity style={styles.actionButton} onPress={handleComment}>
+                    <MessageCircle size={28} color="#FFFFFF" />
+                    {getUniqueCommentCount((post as Post).comments) > 0 && (
+                      <Text style={styles.actionText}>{getUniqueCommentCount((post as Post).comments)}</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
 
               <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
@@ -333,10 +411,37 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 12,
   },
+  photoCounter: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 11,
+  },
   closeButton: {
     padding: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     borderRadius: 20,
+  },
+  navigationButton: {
+    position: 'absolute',
+    top: '50%',
+    zIndex: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 25,
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prevButton: {
+    left: 20,
+  },
+  nextButton: {
+    right: 20,
+  },
+  navButtonTouchable: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bottomOverlay: {
     position: 'absolute',
@@ -353,6 +458,10 @@ const styles = StyleSheet.create({
   caption: {
     color: '#FFFFFF',
     lineHeight: 20,
+  },
+  reactionsContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   actionBar: {
     flexDirection: 'row',

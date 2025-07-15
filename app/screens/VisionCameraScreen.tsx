@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigation as useNavigationContext } from '../context/NavigationContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import { PostOptionsModal } from '../components/PostOptionsModal';
 
 type LensType = 'ultra-wide' | 'standard';
 
@@ -20,6 +21,7 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showPostOptions, setShowPostOptions] = useState(false);
   const [photoOrientation, setPhotoOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [availableLenses, setAvailableLenses] = useState<LensType[]>([]);
   const [currentLens, setCurrentLens] = useState<LensType>('standard');
@@ -467,11 +469,30 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
       return;
     }
 
+    // Show post options modal instead of navigating directly
+    setShowPostOptions(true);
+  };
+
+  const handleRegularPost = () => {
+    setShowPostOptions(false);
     // Navigate to PhotoSendScreen with the captured photo
     (navigation as any).navigate('PhotoSend', {
       photoUri: capturedPhoto,
       photoOrientation: photoOrientation
     });
+  };
+
+  const handleFlareChain = () => {
+    setShowPostOptions(false);
+    // Navigate to FlareCreationScreen with the captured photo
+    (navigation as any).navigate('FlareCreation', {
+      photoUri: capturedPhoto,
+      photoOrientation: photoOrientation
+    });
+  };
+
+  const handleClosePostOptions = () => {
+    setShowPostOptions(false);
   };
 
   const editPicture = async () => {
@@ -740,6 +761,15 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
             </Animated.View>
           )}
         </View>
+        
+        {/* Post Options Modal */}
+        <PostOptionsModal
+          visible={showPostOptions}
+          onClose={handleClosePostOptions}
+          onRegularPost={handleRegularPost}
+          onFlareChain={handleFlareChain}
+          photoUri={capturedPhoto || undefined}
+        />
       </SafeAreaView>
     </>
   );

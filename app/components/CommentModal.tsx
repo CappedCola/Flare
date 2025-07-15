@@ -10,10 +10,11 @@ import {
   Animated,
   StyleSheet,
   Dimensions,
+  Keyboard,
 } from 'react-native';
 import { Text, Avatar, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Send, Heart, ChevronDown, Smile, Image, AtSign } from 'lucide-react-native';
+import { X, Send, Heart, ChevronDown } from 'lucide-react-native';
 import { Comment, Post } from '../types';
 import { addComment } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
@@ -130,6 +131,7 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState<Comment[]>(post.comments || []);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
 
   useEffect(() => {
@@ -149,6 +151,23 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
       }).start();
     }
   }, [visible]);
+
+  // Keyboard event listeners
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const keyboardWillHide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
 
   // Helper function to deduplicate comments by ID with additional safety
   const deduplicateComments = (comments: Comment[]): Comment[] => {
@@ -180,12 +199,35 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
 
   useEffect(() => {
     const newComments = deduplicateComments(post.comments || []);
-    // Only update if there's actually a change to prevent unnecessary renders
+    
     setComments(prevComments => {
-      if (JSON.stringify(prevComments) === JSON.stringify(newComments)) {
+      // Get any temporary comments (optimistic UI)
+      const tempComments = prevComments.filter(comment => comment.id.startsWith('temp_'));
+      
+      // Merge real comments with temp comments, avoiding duplicates
+      const mergedComments = [...newComments];
+      
+      // Add temp comments that don't have real counterparts yet
+      tempComments.forEach(tempComment => {
+        const hasRealComment = newComments.some(comment => 
+          comment.text === tempComment.text && 
+          comment.userId === tempComment.userId &&
+          Math.abs(new Date(comment.createdAt).getTime() - tempComment.createdAt.getTime()) < 5000 // Within 5 seconds
+        );
+        if (!hasRealComment) {
+          mergedComments.push(tempComment);
+        }
+      });
+      
+      // Sort by creation date
+      mergedComments.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      
+      // Only update if there's actually a change
+      if (JSON.stringify(prevComments) === JSON.stringify(mergedComments)) {
         return prevComments;
       }
-      return newComments;
+      
+      return mergedComments;
     });
   }, [post.comments]);
 
@@ -203,15 +245,46 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
   const handleSubmitComment = async () => {
     if (!commentText.trim() || !user || isSubmitting) return;
 
+    const commentToSubmit = commentText.trim();
+    
+    const tempComment: Comment = {
+      id: `temp_${Date.now()}`, // Temporary ID for optimistic UI
+      postId: post.id,
+      userId: user.id,
+      username: user.username || user.displayName,
+      userAvatar: user.avatar,
+      text: commentToSubmit,
+      createdAt: new Date(),
+      likes: [],
+    };
+
+    // Optimistic UI - add comment immediately
+    setComments(prevComments => [...prevComments, tempComment]);
+    setCommentText('');
+    
     setIsSubmitting(true);
     try {
-      const newComment = await addComment(post.id, user.id, commentText.trim());
-      // Remove manual local state update to prevent duplicate keys
-      // The real-time listener will automatically update post.comments and trigger useEffect
-      setCommentText('');
+      const newComment = await addComment(post.id, user.id, commentToSubmit);
+      
+      // Replace temp comment with real comment from server
+      setComments(prevComments => 
+        prevComments.map(comment => 
+          comment.id === tempComment.id ? newComment : comment
+        )
+      );
+      
       onCommentAdded?.(newComment);
     } catch (error) {
       if (__DEV__) console.error('Error adding comment:', error);
+      
+      // Remove temp comment on error
+      setComments(prevComments => 
+        prevComments.filter(comment => comment.id !== tempComment.id)
+      );
+      
+      // Restore the comment text so user can try again
+      setCommentText(tempComment.text);
+      
       // TODO: Show error toast
     } finally {
       setIsSubmitting(false);
@@ -224,6 +297,10 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
 
   const renderComment = ({ item }: { item: Comment }) => (
     <CommentItem comment={item} onLike={handleCommentLike} />
+  );
+
+  const renderFooter = () => (
+    <View style={[styles.listFooter, { height: isKeyboardVisible ? 20 : 120 }]} />
   );
 
   return (
@@ -286,11 +363,13 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
                   </Text>
                 </View>
               }
+              ListFooterComponent={renderFooter}
             />
 
             {/* Comment Input */}
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 45 : 0}
               style={[styles.inputContainer, { borderTopColor: theme['border-basic-color-4'] }]}
             >
               <Avatar
@@ -298,35 +377,36 @@ export const CommentModal = ({ visible, onClose, post, onCommentAdded }: Comment
                 source={{ uri: user?.avatar || 'https://via.placeholder.com/40' }}
                 style={styles.inputAvatar}
               />
-              <View style={styles.inputSection}>
-                <TextInput
-                  style={[
-                    styles.textInput,
-                    {
-                      backgroundColor: theme['background-basic-color-2'],
-                      color: theme['text-primary-color'],
-                      borderColor: theme['border-basic-color-4'],
-                    },
-                  ]}
-                  placeholder="Add comment..."
-                  placeholderTextColor={theme['text-secondary-color']}
-                  value={commentText}
-                  onChangeText={setCommentText}
-                  multiline
-                  maxLength={500}
-                />
-                <View style={styles.inputActions}>
-                  <TouchableOpacity style={styles.inputActionButton}>
-                    <Smile size={22} color={theme['text-secondary-color']} />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.inputActionButton}>
-                    <Image size={22} color={theme['text-secondary-color']} />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.inputActionButton}>
-                    <AtSign size={22} color={theme['text-secondary-color']} />
-                  </TouchableOpacity>
-                </View>
-              </View>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: theme['background-basic-color-2'],
+                    color: theme['text-primary-color'],
+                    borderColor: theme['border-basic-color-4'],
+                  },
+                ]}
+                placeholder="Add comment..."
+                placeholderTextColor={theme['text-secondary-color']}
+                value={commentText}
+                onChangeText={setCommentText}
+                multiline
+                maxLength={500}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  {
+                    backgroundColor: commentText.trim()
+                      ? theme['color-primary-500']
+                      : theme['color-basic-300'],
+                  },
+                ]}
+                onPress={handleSubmitComment}
+                disabled={!commentText.trim() || isSubmitting}
+              >
+                <Send size={18} color="#FFFFFF" />
+              </TouchableOpacity>
             </KeyboardAvoidingView>
           </SafeAreaView>
         </Animated.View>
@@ -398,6 +478,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
+  listFooter: {
+    width: '100%',
+  },
   commentItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -462,42 +545,30 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
   },
   inputAvatar: {
-    marginRight: 16,
-    marginTop: 2,
-  },
-  inputSection: {
-    flex: 1,
+    marginRight: 12,
+    marginBottom: 4,
   },
   textInput: {
+    flex: 1,
     borderWidth: 1,
     borderRadius: 25,
     paddingHorizontal: 18,
-    paddingVertical: 14,
-    marginBottom: 12,
-    maxHeight: 120,
+    paddingVertical: 12,
+    marginRight: 10,
+    maxHeight: 100,
     fontSize: 16,
     lineHeight: 20,
   },
-  inputActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    gap: 20,
-    paddingLeft: 6,
-  },
-  inputActionButton: {
-    padding: 8,
-  },
   sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
