@@ -8,11 +8,13 @@ import { useFlareChains } from '../../hooks/useFlareChains';
 import { ChainPrompt, User } from '../../types';
 import { PromptType, PromptCategoryType } from '../../types/flare';
 import { getUserFriends } from '../../services/firebaseService';
+import { useAuth } from '../../context/AuthContext';
 
 export const FlareCreationScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { createChain, loading: chainLoading } = useFlareChains('current-user-id'); // TODO: Get from auth context
+  const { user, isAuthenticated } = useAuth();
+  const { createChain, loading: chainLoading } = useFlareChains(user?.id || '');
   
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [maxParticipants, setMaxParticipants] = useState('5');
@@ -28,19 +30,29 @@ export const FlareCreationScreen = () => {
   const photoOrientation = params?.photoOrientation as 'portrait' | 'landscape';
 
   useEffect(() => {
+    // Check authentication first
+    if (!isAuthenticated || !user) {
+      Alert.alert('Authentication Required', 'Please sign in to create chains.');
+      navigation.goBack();
+      return;
+    }
+
     loadFriends();
     
     // If photo is passed from camera, use it directly
     if (photoUri) {
       setCapturedPhotoUri(photoUri);
     }
-  }, [photoUri]);
+  }, [photoUri, isAuthenticated, user]);
 
   const loadFriends = async () => {
     try {
       setLoadingFriends(true);
-      // TODO: Get current user ID from auth context
-      const userFriends = await getUserFriends('current-user-id');
+      if (!user?.id) {
+        console.error('No authenticated user found');
+        return;
+      }
+      const userFriends = await getUserFriends(user.id);
       setFriends(userFriends);
     } catch (error) {
       console.error('Error loading friends:', error);

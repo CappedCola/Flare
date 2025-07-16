@@ -10,14 +10,13 @@ import {
 } from "react-native";
 import { useNavigation as useNavigationContext } from "../context/NavigationContext";
 import { Icon, useTheme } from "@ui-kitten/components";
-import { GalleryVerticalEnd, Plus, User, Users } from 'lucide-react-native';
+import { GalleryVerticalEnd, Plus, User } from 'lucide-react-native';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { FeedScreen } from "../screens/FeedScreen";
 import { CameraScreen } from "../screens/CameraScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
-import { FriendsScreen } from "../screens/FriendsScreen";
 import { pillNavHeight } from "../constants/navigation";
 
 const Tab = createBottomTabNavigator();
@@ -25,7 +24,6 @@ const Tab = createBottomTabNavigator();
 const FeedIcon = (props: any) => <GalleryVerticalEnd {...props} />;
 const PersonIcon = (props: any) => <User {...props} />;
 const PlusIcon = (props: any) => <Plus {...props} />;
-const FriendsIcon = (props: any) => <Users {...props} />;
 
 interface GlassPillProps {
 	children: React.ReactNode;
@@ -64,7 +62,6 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 
 	const tabs = [
 		{ name: "Feed", icon: FeedIcon },
-		{ name: "Friends", icon: FriendsIcon },
 		{ name: "Camera", icon: PlusIcon, isCenter: true },
 		{ name: "Profile", icon: PersonIcon },
 	];
@@ -73,7 +70,7 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 	const currentIndex = tabs.findIndex(
 		(tab) => tab.name === state.routeNames[state.index]
 	);
-	const isOnCameraTab = currentIndex === 2;
+	const isOnCameraTab = currentIndex === 1;
 
 	useEffect(() => {
 		Animated.spring(indicatorAnim, {
@@ -135,12 +132,11 @@ const FullWidthTabBar = ({ navigation, state }: FullWidthTabBarProps) => {
 								transform: [
 									{
 										translateX: indicatorAnim.interpolate({
-											inputRange: [0, 1, 2, 3],
+											inputRange: [0, 1, 2],
 											outputRange: [
-												0,
-												screenWidth * 0.92 * 0.25,
+												screenWidth * 0.92 * 0.167,
 												screenWidth * 0.92 * 0.5,
-												screenWidth * 0.92 * 0.75,
+												screenWidth * 0.92 * 0.833,
 											],
 										}),
 									},
@@ -194,7 +190,6 @@ export const BottomTabs = () => {
 			}}
 		>
 			<Tab.Screen name="Feed" component={FeedScreen} />
-			<Tab.Screen name="Friends" component={FriendsScreen} />
 			<Tab.Screen name="Camera" component={CameraScreen} />
 			<Tab.Screen name="Profile" component={ProfileScreen} />
 		</Tab.Navigator>
@@ -234,8 +229,8 @@ const styles = StyleSheet.create({
 		opacity: 0.7,
 		zIndex: 1,
 		top: 12,
-		left: "12.5%",
-		marginLeft: -32,
+		left: 0,
+		marginLeft: -30,
 	},
 	plusButton: {
 		position: "absolute",

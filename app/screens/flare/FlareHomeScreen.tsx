@@ -9,19 +9,28 @@ import { AchievementCelebration } from '../../components/AchievementCelebration'
 import { statisticsService } from '../../services/statisticsService';
 import { useAchievements } from '../../hooks/useAchievements';
 import { ChainDashboardData, UserStatistics, Achievement } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 
 export const FlareHomeScreen = () => {
   const navigation = useNavigation();
+  const { user, isAuthenticated } = useAuth();
+  const currentUserId = user?.id || '';
   const [dashboardData, setDashboardData] = useState<ChainDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [celebrationAchievement, setCelebrationAchievement] = useState<Achievement | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
 
-  const currentUserId = 'current-user-id'; // TODO: Get from auth context
   const { unreadNotifications, markAsRead, markCelebrationShown } = useAchievements(currentUserId);
 
   useEffect(() => {
+    // Check authentication first
+    if (!isAuthenticated || !user || !currentUserId) {
+      setLoading(false);
+      setError('Please sign in to view dashboard');
+      return;
+    }
+
     loadDashboardData();
     
     // Subscribe to real-time statistics updates
@@ -35,7 +44,7 @@ export const FlareHomeScreen = () => {
     );
 
     return unsubscribe;
-  }, [currentUserId]);
+  }, [currentUserId, isAuthenticated, user]);
 
   // Show celebration for new achievements
   useEffect(() => {
@@ -52,6 +61,12 @@ export const FlareHomeScreen = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      if (!currentUserId) {
+        setError('No authenticated user');
+        return;
+      }
+      
       const data = await statisticsService.getDashboardData(currentUserId);
       setDashboardData(data);
     } catch (err) {

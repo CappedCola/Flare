@@ -8,10 +8,12 @@ export enum ChainStatus {
 }
 
 export enum ParticipantStatus {
-  PENDING = 'pending',
-  RESPONDED = 'responded',
-  SKIPPED = 'skipped',
-  EXPIRED = 'expired'
+  WAITING_TURN = 'waiting_turn', // Waiting for their turn in sequence
+  CURRENT_TURN = 'current_turn', // It's currently their turn
+  RESPONDED = 'responded', // They have submitted their photo
+  TURN_EXPIRED = 'turn_expired', // Their turn time expired
+  SKIPPED = 'skipped', // Manually skipped their turn
+  EXPIRED = 'expired' // Chain expired before their turn
 }
 
 export enum PromptType {

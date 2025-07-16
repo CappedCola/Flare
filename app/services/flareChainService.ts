@@ -1,4 +1,4 @@
-import { FlareChain, ChainParticipant, ChainPhoto, ChainPrompt, User } from '../types';
+import { FlareChain, ChainParticipant, ChainPhoto, ChainPrompt, User, TurnRecord } from '../types';
 import { ChainStatus, ParticipantStatus } from '../types/flare';
 import { firestore, storage } from '../config/firebase';
 import { 
@@ -36,32 +36,53 @@ export const flareChainService = {
       const chainRef = doc(collection(firestore, 'flareChains'));
       const chainId = chainRef.id;
       
-      // Calculate expiration time (60 minutes from now)
+      // Calculate expiration time (total chain safety limit: 24 hours)
       const now = new Date();
-      const expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
+      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      
+      // Calculate current turn expiration (1 hour from now for first participant)
+      const currentTurnExpiresAt = new Date(now.getTime() + 60 * 60 * 1000);
       
       // Create participants array with creator first
       const participants: ChainParticipant[] = [
         {
           userId: creatorId,
           username: 'current-user', // TODO: Get from auth context
-          status: firstPhotoUri ? ParticipantStatus.RESPONDED : ParticipantStatus.PENDING,
+          status: firstPhotoUri ? ParticipantStatus.RESPONDED : ParticipantStatus.CURRENT_TURN,
           position: 0,
           invitedAt: now,
           respondedAt: firstPhotoUri ? now : undefined,
         }
       ];
 
-      // Add selected participants
+      // Add selected participants (they start in waiting status)
       participantUserIds.forEach((userId, index) => {
         participants.push({
           userId,
           username: `user-${userId}`, // TODO: Get actual username from user data
-          status: ParticipantStatus.PENDING,
+          status: ParticipantStatus.WAITING_TURN,
           position: index + 1,
           invitedAt: now,
         });
       });
+
+      // Initialize turn history
+      const turnHistory: TurnRecord[] = [];
+      
+      // Start first turn record
+      const firstTurnRecord: TurnRecord = {
+        userId: creatorId,
+        username: 'current-user',
+        position: 0,
+        startedAt: now,
+        photoSubmitted: !!firstPhotoUri,
+        turnDurationMinutes: 0,
+        completedAt: firstPhotoUri ? now : undefined,
+      };
+      turnHistory.push(firstTurnRecord);
+
+      // Create participantIds array for Firestore queries (primitive values only)
+      const participantIds = [creatorId, ...participantUserIds];
 
       const newChain: FlareChain = {
         id: chainId,
@@ -70,12 +91,15 @@ export const flareChainService = {
         prompt,
         status: ChainStatus.ACTIVE,
         participants,
+        participantIds, // Add this for efficient querying
         photos: [],
         maxParticipants,
         currentParticipantIndex: firstPhotoUri ? 1 : 0,
-        timeLimit: 60, // minutes
+        currentTurnExpiresAt, // Individual turn timer
+        turnHistory, // Track each person's turn
+        timeLimit: 60, // minutes per person
         createdAt: now,
-        expiresAt,
+        expiresAt, // Overall safety expiration
       };
 
       // Upload first photo if provided
@@ -116,6 +140,148 @@ export const flareChainService = {
     }
   },
 
+  // Start the next person's turn in the sequence
+  async startNextTurn(chainId: string): Promise<void> {
+    try {
+      const chainDoc = await getDoc(doc(firestore, 'flareChains', chainId));
+      if (!chainDoc.exists()) {
+        throw new Error('Chain not found');
+      }
+
+      const chainData = chainDoc.data() as FlareChain;
+      const nextIndex = chainData.currentParticipantIndex;
+      
+      // Check if chain is complete
+      if (nextIndex >= chainData.participants.length) {
+        await this.completeChain(chainId);
+        return;
+      }
+
+      const nextParticipant = chainData.participants[nextIndex];
+      const now = new Date();
+      const turnExpiresAt = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour from now
+
+      // Update participant statuses
+      const updatedParticipants = chainData.participants.map((p, index) => {
+        if (index === nextIndex) {
+          return { ...p, status: ParticipantStatus.CURRENT_TURN };
+        } else if (p.status === ParticipantStatus.CURRENT_TURN) {
+          return { ...p, status: ParticipantStatus.RESPONDED };
+        }
+        return p;
+      });
+
+      // Create new turn record
+      const newTurnRecord: TurnRecord = {
+        userId: nextParticipant.userId,
+        username: nextParticipant.username,
+        position: nextIndex,
+        startedAt: now,
+        photoSubmitted: false,
+        turnDurationMinutes: 0,
+      };
+
+      // Update chain
+      await updateDoc(doc(firestore, 'flareChains', chainId), {
+        participants: updatedParticipants,
+        currentTurnExpiresAt: turnExpiresAt,
+        turnHistory: arrayUnion(newTurnRecord),
+      });
+
+      console.log(`Started turn for participant ${nextIndex}: ${nextParticipant.username}`);
+    } catch (error) {
+      console.error('Error starting next turn:', error);
+      throw error;
+    }
+  },
+
+  // Handle when a participant's turn expires
+  async handleTurnExpiry(chainId: string, expiredUserId: string): Promise<void> {
+    try {
+      const chainDoc = await getDoc(doc(firestore, 'flareChains', chainId));
+      if (!chainDoc.exists()) {
+        throw new Error('Chain not found');
+      }
+
+      const chainData = chainDoc.data() as FlareChain;
+      const now = new Date();
+
+      // Mark expired participant
+      const updatedParticipants = chainData.participants.map(p => 
+        p.userId === expiredUserId 
+          ? { ...p, status: ParticipantStatus.TURN_EXPIRED }
+          : p
+      );
+
+      // Update turn history
+      const updatedTurnHistory = chainData.turnHistory.map(turn => 
+        turn.userId === expiredUserId && !turn.completedAt
+          ? { 
+              ...turn, 
+              expiredAt: now,
+              turnDurationMinutes: Math.round((now.getTime() - turn.startedAt.getTime()) / (1000 * 60))
+            }
+          : turn
+      );
+
+      // Update chain
+      await updateDoc(doc(firestore, 'flareChains', chainId), {
+        participants: updatedParticipants,
+        turnHistory: updatedTurnHistory,
+        currentParticipantIndex: increment(1),
+      });
+
+      // Start next person's turn
+      await this.startNextTurn(chainId);
+
+      console.log(`Turn expired for user ${expiredUserId}, advancing to next participant`);
+    } catch (error) {
+      console.error('Error handling turn expiry:', error);
+      throw error;
+    }
+  },
+
+  // Get current turn information
+  async getCurrentTurnInfo(chainId: string): Promise<{
+    currentParticipant: ChainParticipant | null;
+    timeRemaining: number; // minutes
+    isUsersTurn: (userId: string) => boolean;
+  }> {
+    try {
+      const chainDoc = await getDoc(doc(firestore, 'flareChains', chainId));
+      if (!chainDoc.exists()) {
+        throw new Error('Chain not found');
+      }
+
+      const chainData = chainDoc.data() as FlareChain;
+      const now = new Date();
+      
+      const currentParticipant = chainData.participants.find(p => 
+        p.status === ParticipantStatus.CURRENT_TURN
+      ) || null;
+
+      const timeRemaining = currentParticipant 
+        ? Math.max(0, Math.round((chainData.currentTurnExpiresAt.getTime() - now.getTime()) / (1000 * 60)))
+        : 0;
+
+      const isUsersTurn = (userId: string) => 
+        currentParticipant?.userId === userId;
+
+      return {
+        currentParticipant,
+        timeRemaining,
+        isUsersTurn,
+      };
+    } catch (error) {
+      console.error('Error getting current turn info:', error);
+      return {
+        currentParticipant: null,
+        timeRemaining: 0,
+        isUsersTurn: () => false,
+      };
+    }
+  },
+
   // Upload photo to Firebase Storage
   async uploadChainPhoto(chainId: string, userId: string, photoUri: string): Promise<string> {
     try {
@@ -135,7 +301,7 @@ export const flareChainService = {
     }
   },
 
-  // Add a photo response to a chain
+  // Add a photo response to a chain (sequential version)
   async respondToChain(
     chainId: string, 
     userId: string, 
@@ -143,9 +309,6 @@ export const flareChainService = {
     interpretation?: string
   ): Promise<ChainPhoto> {
     try {
-      // Upload photo
-      const photoUrl = await this.uploadChainPhoto(chainId, userId, photoUri);
-      
       // Get current chain data
       const chainDoc = await getDoc(doc(firestore, 'flareChains', chainId));
       if (!chainDoc.exists()) {
@@ -153,6 +316,26 @@ export const flareChainService = {
       }
       
       const chainData = chainDoc.data() as FlareChain;
+      const now = new Date();
+      
+      // Verify it's the user's turn
+      const currentParticipant = chainData.participants.find(p => 
+        p.status === ParticipantStatus.CURRENT_TURN
+      );
+      
+      if (!currentParticipant || currentParticipant.userId !== userId) {
+        throw new Error('It is not your turn to respond');
+      }
+
+      // Check if turn has expired
+      if (now > chainData.currentTurnExpiresAt) {
+        await this.handleTurnExpiry(chainId, userId);
+        throw new Error('Your turn has expired');
+      }
+
+      // Upload photo
+      const photoUrl = await this.uploadChainPhoto(chainId, userId, photoUri);
+      
       const currentPosition = chainData.photos.length;
       
       // Create photo document
@@ -160,36 +343,54 @@ export const flareChainService = {
         id: `${chainId}-${currentPosition}`,
         chainId,
         userId,
-        username: 'current-user', // TODO: Get from auth context
+        username: currentParticipant.username,
         photoUrl,
         interpretation,
         position: currentPosition,
-        createdAt: new Date(),
+        createdAt: now,
         likes: [],
         reactions: [],
       };
 
+      // Calculate turn duration
+      const currentTurn = chainData.turnHistory.find(turn => 
+        turn.userId === userId && !turn.completedAt
+      );
+      const turnDuration = currentTurn 
+        ? Math.round((now.getTime() - currentTurn.startedAt.getTime()) / (1000 * 60))
+        : 0;
+
+      // Update participant status
+      const updatedParticipants = chainData.participants.map(p => 
+        p.userId === userId 
+          ? { ...p, status: ParticipantStatus.RESPONDED, respondedAt: now }
+          : p
+      );
+
+      // Update turn history
+      const updatedTurnHistory = chainData.turnHistory.map(turn => 
+        turn.userId === userId && !turn.completedAt
+          ? { 
+              ...turn, 
+              completedAt: now,
+              photoSubmitted: true,
+              turnDurationMinutes: turnDuration
+            }
+          : turn
+      );
+
       // Update chain document
       await updateDoc(doc(firestore, 'flareChains', chainId), {
         photos: arrayUnion(newPhoto),
+        participants: updatedParticipants,
+        turnHistory: updatedTurnHistory,
         currentParticipantIndex: increment(1),
-        'participants': chainData.participants.map(p => 
-          p.userId === userId 
-            ? { ...p, status: ParticipantStatus.RESPONDED, respondedAt: new Date() }
-            : p
-        ),
       });
 
-      // Check if chain is complete
-      const allResponded = chainData.participants.every(p => 
-        p.status === ParticipantStatus.RESPONDED || p.userId === userId
-      );
-      
-      if (allResponded) {
-        await this.completeChain(chainId);
-      }
+      // Start next person's turn
+      await this.startNextTurn(chainId);
 
-      console.log('Photo added to chain successfully');
+      console.log(`Photo submitted successfully by ${userId}, turn duration: ${turnDuration} minutes`);
       return newPhoto;
     } catch (error) {
       console.error('Error responding to chain:', error);
@@ -200,9 +401,14 @@ export const flareChainService = {
   // Get active chains for a user
   async getActiveChains(userId: string): Promise<FlareChain[]> {
     try {
+      if (!userId) {
+        console.error('Error getting active chains: userId is required');
+        return [];
+      }
+
       const q = query(
         collection(firestore, 'flareChains'),
-        where('participants', 'array-contains', { userId }),
+        where('participantIds', 'array-contains', userId),
         where('status', '==', ChainStatus.ACTIVE),
         orderBy('createdAt', 'desc')
       );
@@ -214,9 +420,16 @@ export const flareChainService = {
         chains.push({ id: doc.id, ...doc.data() } as FlareChain);
       });
       
+      console.log(`Found ${chains.length} active chains for user ${userId}`);
       return chains;
-    } catch (error) {
-      console.error('Error getting active chains:', error);
+    } catch (error: any) {
+      if (error?.code === 'permission-denied') {
+        console.error('Permission denied accessing flareChains collection. Please check Firestore security rules.', error);
+      } else if (error?.code === 'unauthenticated') {
+        console.error('User not authenticated when accessing flareChains collection.', error);
+      } else {
+        console.error('Error getting active chains:', error);
+      }
       return [];
     }
   },
@@ -240,9 +453,14 @@ export const flareChainService = {
   // Get chain history for a user
   async getChainHistory(userId: string, limitCount = 20): Promise<FlareChain[]> {
     try {
+      if (!userId) {
+        console.error('Error getting chain history: userId is required');
+        return [];
+      }
+
       const q = query(
         collection(firestore, 'flareChains'),
-        where('participants', 'array-contains', { userId }),
+        where('participantIds', 'array-contains', userId),
         where('status', 'in', [ChainStatus.COMPLETED, ChainStatus.EXPIRED]),
         orderBy('completedAt', 'desc'),
         limit(limitCount)
@@ -255,9 +473,16 @@ export const flareChainService = {
         chains.push({ id: doc.id, ...doc.data() } as FlareChain);
       });
       
+      console.log(`Found ${chains.length} chain history items for user ${userId}`);
       return chains;
-    } catch (error) {
-      console.error('Error getting chain history:', error);
+    } catch (error: any) {
+      if (error?.code === 'permission-denied') {
+        console.error('Permission denied accessing flareChains collection for history. Please check Firestore security rules.', error);
+      } else if (error?.code === 'unauthenticated') {
+        console.error('User not authenticated when accessing flareChains history.', error);
+      } else {
+        console.error('Error getting chain history:', error);
+      }
       return [];
     }
   },
@@ -321,6 +546,7 @@ export const flareChainService = {
       
       await updateDoc(doc(firestore, 'flareChains', chainId), {
         participants: arrayUnion(...newParticipants),
+        participantIds: arrayUnion(...userIds),
       });
       
       await this.sendChainInvitations(chainId, userIds, chain.prompt.title);
@@ -345,6 +571,7 @@ export const flareChainService = {
       
       await updateDoc(doc(firestore, 'flareChains', chainId), {
         participants: updatedParticipants,
+        participantIds: arrayRemove(userId),
       });
       
       console.log('User removed from chain:', userId);
@@ -403,18 +630,18 @@ export const flareChainService = {
     return unsubscribe;
   },
 
-  // Get chains that a user needs to respond to
+  // Get chains that a user needs to respond to (sequential version)
   async getChainsAwaitingResponse(userId: string): Promise<FlareChain[]> {
     try {
       const activeChains = await this.getActiveChains(userId);
       
       return activeChains.filter(chain => {
         const userParticipant = chain.participants.find(p => p.userId === userId);
-        const currentParticipant = chain.participants[chain.currentParticipantIndex];
         
+        // Only return chains where it's currently the user's turn
         return userParticipant && 
-               userParticipant.status === ParticipantStatus.PENDING &&
-               currentParticipant?.userId === userId;
+               userParticipant.status === ParticipantStatus.CURRENT_TURN &&
+               new Date() < chain.currentTurnExpiresAt; // Not expired
       });
     } catch (error) {
       console.error('Error getting chains awaiting response:', error);

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,8 +14,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@ui-kitten/components';
 import {
   X,
-  Heart,
-  MessageCircle,
   Send,
   Check,
   Trash2,

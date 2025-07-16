@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Layout, Text, Card, useTheme, Spinner, Button } from '@ui-kitten/components';
-import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
+import { BarChart, PieChart } from 'react-native-chart-kit';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -306,6 +306,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               verticalLabelRotation={30}
               fromZero={true}
               showBarTops={true}
+              yAxisLabel=""
               yAxisSuffix="m"
             />
           </Card>
@@ -403,6 +404,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               verticalLabelRotation={30}
               fromZero={true}
               showBarTops={true}
+              yAxisLabel=""
+              yAxisSuffix=""
             />
           </Card>
         </View>

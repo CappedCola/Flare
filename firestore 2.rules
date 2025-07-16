@@ -69,6 +69,28 @@ service cloud.firestore {
                          request.auth.uid == resource.data.toUserId);
     }
     
+    // Flare Chains collection - Photo passing game chains
+    match /flareChains/{chainId} {
+      // Allow reading chains where user is a participant (using participantIds array)
+      allow read: if request.auth != null && 
+                  (request.auth.uid in resource.data.participantIds ||
+                   request.auth.uid == resource.data.creatorId);
+      
+      // Allow creating chains where user is the creator
+      allow create: if request.auth != null && 
+                   request.auth.uid == request.resource.data.creatorId;
+      
+      // Allow updating chains where user is a participant or creator
+      // (for adding photos, updating status, etc.)
+      allow update: if request.auth != null && 
+                   (request.auth.uid in resource.data.participantIds ||
+                    request.auth.uid == resource.data.creatorId);
+      
+      // Only creator can delete chains
+      allow delete: if request.auth != null && 
+                   request.auth.uid == resource.data.creatorId;
+    }
+    
     // Deny all other reads/writes
     match /{document=**} {
       allow read, write: if false;

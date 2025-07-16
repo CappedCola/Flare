@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Layout, Text, Card, Button, Avatar } from '@ui-kitten/components';
+import React from 'react';
+import { Layout, Text, Card, Button } from '@ui-kitten/components';
 import { StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
-import { Clock, Users, MessageCircle, Play, AlertCircle } from 'lucide-react-native';
+import { Clock, MessageCircle, Play, AlertCircle } from 'lucide-react-native';
 import { ActiveChainInfo, ChainInvitation, ChainActivity } from '../types';
 
 const { width: screenWidth } = Dimensions.get('window');

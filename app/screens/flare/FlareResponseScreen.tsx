@@ -8,11 +8,14 @@ import { useFlareChains } from '../../hooks/useFlareChains';
 import { useChainTimer } from '../../hooks/useChainTimer';
 import { FlareChain } from '../../types';
 import { ParticipantStatus } from '../../types/flare';
+import { useAuth } from '../../context/AuthContext';
 
 export const FlareResponseScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { respondToChain, getChainById, subscribeToChain } = useFlareChains('current-user-id'); // TODO: Get from auth context
+  const { user, isAuthenticated } = useAuth();
+  const currentUserId = user?.id || '';
+  const { respondToChain, getChainById, subscribeToChain } = useFlareChains(currentUserId);
   
   const [chain, setChain] = useState<FlareChain | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,7 +26,6 @@ export const FlareResponseScreen = () => {
 
   // Get chainId from navigation params
   const chainId = (route.params as any)?.chainId || 'demo-chain';
-  const currentUserId = 'current-user-id'; // TODO: Get from auth context
 
   // Use timer hook for real-time countdown
   const {
@@ -37,9 +39,16 @@ export const FlareResponseScreen = () => {
   } = useChainTimer(chainId, currentUserId);
 
   useEffect(() => {
+    // Check authentication first
+    if (!isAuthenticated || !user) {
+      Alert.alert('Authentication Required', 'Please sign in to respond to chains.');
+      navigation.goBack();
+      return;
+    }
+
     loadChain();
     setupRealtimeUpdates();
-  }, [chainId]);
+  }, [chainId, isAuthenticated, user]);
 
   const loadChain = async () => {
     try {
@@ -49,10 +58,13 @@ export const FlareResponseScreen = () => {
       if (chainData) {
         setChain(chainData);
         
-        // Check if user has already responded
+        // Check if user has already responded or it's not their turn
         const userParticipant = chainData.participants.find(p => p.userId === currentUserId);
-        if (userParticipant && userParticipant.status === ParticipantStatus.RESPONDED) {
-          setHasResponded(true);
+        if (userParticipant) {
+          if (userParticipant.status === ParticipantStatus.RESPONDED) {
+            setHasResponded(true);
+          }
+          // Note: We'll check for CURRENT_TURN status in the render logic
         }
       } else {
         Alert.alert('Error', 'Chain not found');
@@ -71,10 +83,12 @@ export const FlareResponseScreen = () => {
       if (updatedChain) {
         setChain(updatedChain);
         
-        // Check if user has responded
+        // Check if user has responded or status changed
         const userParticipant = updatedChain.participants.find(p => p.userId === currentUserId);
-        if (userParticipant && userParticipant.status === ParticipantStatus.RESPONDED) {
-          setHasResponded(true);
+        if (userParticipant) {
+          if (userParticipant.status === ParticipantStatus.RESPONDED) {
+            setHasResponded(true);
+          }
         }
       }
     });
@@ -242,26 +256,37 @@ export const FlareResponseScreen = () => {
             </Card>
           </Layout>
 
-          {/* Chain Progress */}
+          {/* Chain Progress - Sequential Turn Flow */}
           <Layout style={styles.section}>
-            <Text category="h6" style={styles.sectionTitle}>Chain Progress</Text>
+            <Text category="h6" style={styles.sectionTitle}>Turn Sequence</Text>
             <Card style={styles.progressCard}>
               <Layout style={styles.participantsList}>
                 {chain.participants.map((participant, index) => {
                   const isCurrentUser = participant.userId === currentUserId;
                   const hasResponded = participant.status === ParticipantStatus.RESPONDED;
-                  const isCurrent = index === chain.currentParticipantIndex;
+                  const isCurrentTurn = participant.status === ParticipantStatus.CURRENT_TURN;
+                  const isWaiting = participant.status === ParticipantStatus.WAITING_TURN;
+                  const isExpired = participant.status === ParticipantStatus.TURN_EXPIRED;
+                  
+                  let backgroundColor = '#F5F5F5';
+                  let borderColor = 'transparent';
+                  let borderWidth = 0;
+                  
+                  if (hasResponded) {
+                    backgroundColor = '#E8F5E8';
+                  } else if (isCurrentTurn) {
+                    backgroundColor = '#FFF5E8';
+                    borderColor = '#FF4D4D';
+                    borderWidth = 2;
+                  } else if (isExpired) {
+                    backgroundColor = '#FFE8E8';
+                  }
                   
                   return (
                     <Layout key={participant.userId} style={styles.participantItem}>
                       <Layout style={[
                         styles.participantAvatar,
-                        { 
-                          backgroundColor: hasResponded ? '#E8F5E8' : 
-                                         isCurrent ? '#FFF5E8' : '#F5F5F5',
-                          borderColor: isCurrent ? '#FF4D4D' : 'transparent',
-                          borderWidth: isCurrent ? 2 : 0,
-                        }
+                        { backgroundColor, borderColor, borderWidth }
                       ]}>
                         <Text style={styles.avatarText}>
                           {isCurrentUser ? '👤' : '👤'}
@@ -270,13 +295,19 @@ export const FlareResponseScreen = () => {
                       <Text category="c1" style={styles.participantName}>
                         {isCurrentUser ? 'You' : participant.username}
                       </Text>
-                      {hasResponded && (
-                        <Text category="c2" style={styles.statusText}>✓</Text>
-                      )}
-                      {isCurrent && !hasResponded && (
-                        <Text category="c2" style={styles.currentText}>
-                          {isCurrentUser ? 'Your turn' : 'Current'}
-                        </Text>
+                      <Text category="c2" style={[
+                        styles.statusText, 
+                        { color: hasResponded ? '#4ECDC4' : 
+                                isCurrentTurn ? '#FF4D4D' : 
+                                isExpired ? '#95A5A6' : '#666' }
+                      ]}>
+                        {hasResponded ? '✓ Done' : 
+                         isCurrentTurn ? (isCurrentUser ? 'Your turn!' : 'Taking photo...') :
+                         isExpired ? 'Expired' :
+                         isWaiting ? 'Waiting' : 'Pending'}
+                      </Text>
+                      {index < chain.participants.length - 1 && (
+                        <Text style={styles.arrowText}>→</Text>
                       )}
                     </Layout>
                   );
@@ -304,7 +335,7 @@ export const FlareResponseScreen = () => {
           </Layout>
 
           {/* Response Interface */}
-          {!hasResponded && !isExpired ? (
+          {!hasResponded && !isExpired && chain.participants.find(p => p.userId === currentUserId)?.status === ParticipantStatus.CURRENT_TURN ? (
             <Layout style={styles.section}>
               {/* Photo Capture */}
               <Card style={[styles.photoCard, capturedPhotoUri && styles.photoCardCompleted]}>
@@ -377,6 +408,33 @@ export const FlareResponseScreen = () => {
                 Skip My Turn
               </Button>
             </Layout>
+          ) : !hasResponded && chain.participants.find(p => p.userId === currentUserId)?.status === ParticipantStatus.WAITING_TURN ? (
+            <Layout style={styles.section}>
+              <Card style={styles.waitingCard}>
+                <Layout style={styles.waitingContent}>
+                  <Clock size={32} color="#FFD93D" />
+                  <Text category="h6" style={styles.waitingText}>
+                    Waiting for Your Turn
+                  </Text>
+                  <Text category="c1" appearance="hint" style={styles.waitingSubtext}>
+                    {(() => {
+                      const currentParticipant = chain.participants.find(p => p.status === ParticipantStatus.CURRENT_TURN);
+                      return currentParticipant 
+                        ? `${currentParticipant.username === 'current-user' ? 'Someone' : currentParticipant.username} is currently taking their photo`
+                        : 'Chain is progressing...';
+                    })()}
+                  </Text>
+                  <Button
+                    style={styles.viewChainButton}
+                    appearance="outline"
+                    onPress={handleViewChain}
+                    accessoryLeft={(props) => <Eye {...props} size={16} />}
+                  >
+                    View Chain So Far
+                  </Button>
+                </Layout>
+              </Card>
+            </Layout>
           ) : hasResponded ? (
             <Layout style={styles.section}>
               <Card style={styles.completedCard}>
@@ -385,8 +443,23 @@ export const FlareResponseScreen = () => {
                     ✓ Response Submitted
                   </Text>
                   <Text category="c1" appearance="hint">
-                    Waiting for next participant...
+                    {(() => {
+                      const remainingParticipants = chain.participants.filter(p => 
+                        p.status === ParticipantStatus.WAITING_TURN || p.status === ParticipantStatus.CURRENT_TURN
+                      );
+                      return remainingParticipants.length > 0 
+                        ? `Waiting for ${remainingParticipants.length} more participant${remainingParticipants.length > 1 ? 's' : ''}...`
+                        : 'Chain completed!';
+                    })()}
                   </Text>
+                  <Button
+                    style={styles.viewChainButton}
+                    appearance="outline"
+                    onPress={handleViewChain}
+                    accessoryLeft={(props) => <Eye {...props} size={16} />}
+                  >
+                    View Full Chain
+                  </Button>
                 </Layout>
               </Card>
             </Layout>
@@ -629,5 +702,26 @@ const styles = StyleSheet.create({
   },
   viewChainButton: {
     marginTop: 8,
+  },
+  // New styles for sequential turn flow
+  waitingCard: {
+    backgroundColor: '#FFF9E6',
+  },
+  waitingContent: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  waitingText: {
+    color: '#FFD93D',
+    marginVertical: 12,
+  },
+  waitingSubtext: {
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  arrowText: {
+    fontSize: 16,
+    color: '#CCC',
+    marginHorizontal: 4,
   },
 });

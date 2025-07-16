@@ -311,6 +311,17 @@ export interface ValidationError {
 // Flare Chain Types
 import { ChainStatus, ParticipantStatus, PromptType, PromptCategoryType, ChainTimerStatus, NotificationType } from './flare';
 
+export interface TurnRecord {
+  userId: string;
+  username: string;
+  position: number;
+  startedAt: Date;
+  completedAt?: Date;
+  expiredAt?: Date;
+  photoSubmitted: boolean;
+  turnDurationMinutes: number; // How long this person's turn lasted
+}
+
 export interface FlareChain {
   id: string;
   creatorId: string;
@@ -318,12 +329,15 @@ export interface FlareChain {
   prompt: ChainPrompt;
   status: ChainStatus;
   participants: ChainParticipant[];
+  participantIds: string[]; // For efficient Firestore querying
   photos: ChainPhoto[];
   maxParticipants: number;
   currentParticipantIndex: number;
-  timeLimit: number; // minutes
+  currentTurnExpiresAt: Date; // When current person's turn expires (1 hour from their start)
+  turnHistory: TurnRecord[]; // Track each person's turn
+  timeLimit: number; // minutes per person (60)
   createdAt: Date;
-  expiresAt: Date;
+  expiresAt: Date; // Overall chain expiry (for safety)
   completedAt?: Date;
   groupChatId?: string;
 }
