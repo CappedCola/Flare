@@ -888,14 +888,11 @@ export const acceptFriendRequest = async (requestId: string): Promise<void> => {
     
     const requestData = requestDoc.data() as FriendRequest;
     
-    // Update both users' friends arrays
-    const fromUserRef = doc(firestore, 'users', requestData.fromUserId);
+    // Only update the accepting user's document (toUser) and request status
+    // The requester's document (fromUser) will be updated by their real-time listener
     const toUserRef = doc(firestore, 'users', requestData.toUserId);
     
     await Promise.all([
-      updateDoc(fromUserRef, {
-        friends: arrayUnion(requestData.toUserId)
-      }),
       updateDoc(toUserRef, {
         friends: arrayUnion(requestData.fromUserId)
       }),
@@ -1120,5 +1117,115 @@ export const getMutualFriends = async (userId: string): Promise<MutualFriend[]> 
     }
     
     throw new Error('Failed to load mutual friends');
+  }
+};
+
+export const subscribeToUserFriends = (userId: string, callback: (friends: User[]) => void, onError?: (error: Error) => void) => {
+  try {
+    // Subscribe to user document changes to detect friends array updates
+    const userRef = doc(firestore, 'users', userId);
+    
+    return onSnapshot(userRef, 
+      async (userDoc) => {
+        if (!userDoc.exists()) {
+          if (__DEV__) console.warn('User document not found in subscription');
+          callback([]);
+          return;
+        }
+        
+        const userData = userDoc.data();
+        const friendIds = userData?.friends || [];
+        
+        if (friendIds.length === 0) {
+          callback([]);
+          return;
+        }
+        
+        try {
+          // Get friend user documents
+          const friendPromises = friendIds.map((friendId: string) => 
+            getDoc(doc(firestore, 'users', friendId))
+          );
+          
+          const friendDocs = await Promise.all(friendPromises);
+          const friends = friendDocs
+            .filter(doc => doc && doc.exists())
+            .map(doc => ({ id: doc.id, ...doc.data() } as User));
+          
+          callback(friends);
+        } catch (error) {
+          if (__DEV__) console.error('Error fetching friend documents in subscription:', error);
+          // Call callback with empty array instead of error to prevent UI breaks
+          callback([]);
+        }
+      },
+      (error) => {
+        if (__DEV__) console.error('Error in user friends subscription:', error);
+        
+        // Handle permission denied gracefully
+        if (error.code === 'firestore/permission-denied') {
+          if (__DEV__) console.warn('Permission denied for user friends subscription - calling callback with empty array');
+          callback([]);
+          return;
+        }
+        
+        // Only call onError for actual errors, not permission issues
+        if (onError) onError(new Error('Failed to subscribe to user friends'));
+      }
+    );
+  } catch (error) {
+    if (__DEV__) console.error('Error setting up user friends subscription:', error);
+    // Return a no-op function if subscription setup fails
+    return () => {};
+  }
+};
+
+export const subscribeToAcceptedFriendRequests = (userId: string, callback: (acceptedRequestUserId: string) => void) => {
+  try {
+    // Subscribe to outgoing friend requests that get accepted
+    const outgoingQuery = query(
+      collection(firestore, 'friend_requests'),
+      where('fromUserId', '==', userId),
+      where('status', '==', 'accepted')
+    );
+    
+    return onSnapshot(outgoingQuery, 
+      async (snapshot) => {
+        if (!snapshot || snapshot.empty) {
+          return;
+        }
+        
+        // Check for newly accepted requests
+        snapshot.docChanges().forEach(async (change) => {
+          if (change.type === 'modified') {
+            const requestData = change.doc.data() as FriendRequest;
+            
+            // If this request just got accepted, update the requester's friends list
+            if (requestData.status === 'accepted') {
+              try {
+                const userRef = doc(firestore, 'users', userId);
+                await updateDoc(userRef, {
+                  friends: arrayUnion(requestData.toUserId)
+                });
+                
+                // Notify the callback with the newly accepted friend's ID
+                callback(requestData.toUserId);
+                
+                if (__DEV__) console.log(`Friend request accepted: ${userId} and ${requestData.toUserId} are now friends`);
+              } catch (error) {
+                if (__DEV__) console.error('Error updating requester friends list:', error);
+              }
+            }
+          }
+        });
+      },
+      (error) => {
+        if (__DEV__) console.error('Error in accepted friend requests subscription:', error);
+      }
+    );
+  } catch (error) {
+    if (__DEV__) console.error('Error setting up accepted friend requests subscription:', error);
+    // Return a no-op function if subscription setup fails
+    return () => {};
   }
 };

@@ -14,6 +14,8 @@ import {
   getUserFriends,
   getFriendRequests,
   subscribeToFriendRequests,
+  subscribeToUserFriends,
+  subscribeToAcceptedFriendRequests,
   getMutualFriends
 } from '../services/firebaseService';
 
@@ -232,19 +234,15 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ navigation }) => {
   useEffect(() => {
     if (!user) return;
     
-    const loadData = async () => {
+    const loadInitialData = async () => {
       try {
         setLoading(true);
-        const [friendsData, requestsData] = await Promise.all([
-          getUserFriends(user.id),
-          getFriendRequests(user.id)
-        ]);
-        
-        setFriends(friendsData);
+        // Load initial friend requests data
+        const requestsData = await getFriendRequests(user.id);
         setFriendRequests(requestsData.incoming);
         setOutgoingRequests(requestsData.outgoing);
       } catch (error: any) {
-        console.error('Error loading friends data:', error);
+        console.error('Error loading initial friends data:', error);
         
         // Show user-friendly error message for critical failures
         if (error.message && !error.message.includes('permission')) {
@@ -260,15 +258,30 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ navigation }) => {
       }
     };
     
-    loadData();
+    loadInitialData();
     
-    // Subscribe to real-time updates for friend requests with error handling
-    const unsubscribe = subscribeToFriendRequests(user.id, (requests) => {
+    // Subscribe to real-time updates for friends list
+    const unsubscribeFriends = subscribeToUserFriends(user.id, (friendsData) => {
+      setFriends(friendsData);
+    });
+    
+    // Subscribe to real-time updates for friend requests
+    const unsubscribeRequests = subscribeToFriendRequests(user.id, (requests) => {
       setFriendRequests(requests.incoming);
       setOutgoingRequests(requests.outgoing);
     });
     
-    return unsubscribe;
+    // Subscribe to accepted friend requests to update requester's friends list
+    const unsubscribeAccepted = subscribeToAcceptedFriendRequests(user.id, (acceptedUserId) => {
+      console.log(`Your friend request was accepted by user: ${acceptedUserId}`);
+      // The subscribeToUserFriends will automatically update the UI when the friends array changes
+    });
+    
+    return () => {
+      unsubscribeFriends();
+      unsubscribeRequests();
+      unsubscribeAccepted();
+    };
   }, [user]);
 
   const loadMutualFriends = async () => {
@@ -343,14 +356,10 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ navigation }) => {
   const handleAcceptRequest = async (requestId: string) => {
     try {
       await acceptFriendRequest(requestId);
-      // Refresh friends list
-      if (user) {
-        const friendsData = await getUserFriends(user.id);
-        setFriends(friendsData);
-        // Refresh mutual friends if on search tab
-        if (activeTab === 'search') {
-          loadMutualFriends();
-        }
+      // Real-time subscription will automatically update friends list
+      // Refresh mutual friends if on search tab
+      if (activeTab === 'search') {
+        loadMutualFriends();
       }
       Alert.alert('Success', 'Friend request accepted!');
     } catch (error: any) {

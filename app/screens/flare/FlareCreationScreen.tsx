@@ -105,7 +105,7 @@ export const FlareCreationScreen = () => {
       } else if (prev.length < parseInt(maxParticipants) - 1) {
         return [...prev, friendId];
       } else {
-        Alert.alert('Maximum Reached', `You can only invite ${parseInt(maxParticipants) - 1} friends.`);
+        Alert.alert('Maximum Reached', `You can only select ${parseInt(maxParticipants) - 1} friends at once.`);
         return prev;
       }
     });
@@ -125,8 +125,8 @@ export const FlareCreationScreen = () => {
       emoji: '📸'
     };
 
-    if (selectedFriends.length < 2) {
-      Alert.alert('Minimum Friends', 'Please select at least 2 friends to start a chain.');
+    if (selectedFriends.length < 1) {
+      Alert.alert('Minimum Friends', 'Please select at least 1 friend to start a chain.');
       return;
     }
 
@@ -336,7 +336,7 @@ export const FlareCreationScreen = () => {
               style={styles.createButton}
               status="primary"
               size="large"
-              disabled={!capturedPhotoUri || selectedFriends.length < 2 || creating}
+              disabled={!capturedPhotoUri || selectedFriends.length < 1 || creating}
               onPress={handleCreateChain}
               accessoryLeft={creating ? (props) => <Spinner {...props} size="small" /> : undefined}
               accessoryRight={!creating ? (props) => <ArrowRight {...props} size={20} /> : undefined}
@@ -345,10 +345,12 @@ export const FlareCreationScreen = () => {
             </Button>
             <Text category="c1" appearance="hint" style={styles.createHint}>
               {!capturedPhotoUri 
-                ? photoUri ? 'Photo received - select friends' : 'Take a photo first' 
-                : selectedFriends.length < 2 
-                  ? 'Select at least 2 friends'
-                  : `Ready to create chain with ${selectedFriends.length} friends`
+                ? photoUri ? 'Photo received - select a friend' : 'Take a photo first' 
+                : selectedFriends.length < 1 
+                  ? 'Select at least 1 friend'
+                  : selectedFriends.length === 1
+                    ? `Ready to create chain with ${selectedFriends.length} friend`
+                    : `Ready to create chain with ${selectedFriends.length} friends`
               }
             </Text>
           </Layout>
