@@ -23,6 +23,63 @@ import {
 } from '@react-native-firebase/firestore';
 // No additional imports needed - storage is imported from config/firebase
 
+// Utility function to convert Firestore Timestamps to Date objects
+const convertTimestampToDate = (timestamp: any): Date => {
+  if (!timestamp) return new Date();
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    return timestamp.toDate();
+  }
+  if (typeof timestamp === 'string') {
+    return new Date(timestamp);
+  }
+  if (timestamp instanceof Date) {
+    return timestamp;
+  }
+  return new Date();
+};
+
+// Convert FlareChain document with nested timestamps
+const convertChainTimestamps = (data: any): any => {
+  return {
+    ...data,
+    // Main chain timestamps
+    createdAt: convertTimestampToDate(data.createdAt),
+    expiresAt: convertTimestampToDate(data.expiresAt),
+    currentTurnExpiresAt: convertTimestampToDate(data.currentTurnExpiresAt),
+    completedAt: data.completedAt ? convertTimestampToDate(data.completedAt) : undefined,
+    
+    // Participants array timestamps
+    participants: data.participants?.map((participant: any) => ({
+      ...participant,
+      invitedAt: convertTimestampToDate(participant.invitedAt),
+      respondedAt: participant.respondedAt ? convertTimestampToDate(participant.respondedAt) : undefined,
+    })) || [],
+    
+    // Photos array timestamps
+    photos: data.photos?.map((photo: any) => ({
+      ...photo,
+      createdAt: convertTimestampToDate(photo.createdAt),
+      reactions: photo.reactions?.map((reaction: any) => ({
+        ...reaction,
+        createdAt: convertTimestampToDate(reaction.createdAt),
+      })) || [],
+    })) || [],
+    
+    // Turn history timestamps
+    turnHistory: data.turnHistory?.map((turn: any) => ({
+      ...turn,
+      startedAt: convertTimestampToDate(turn.startedAt),
+      completedAt: turn.completedAt ? convertTimestampToDate(turn.completedAt) : undefined,
+    })) || [],
+    
+    // Prompt timestamps
+    prompt: data.prompt ? {
+      ...data.prompt,
+      createdAt: convertTimestampToDate(data.prompt.createdAt),
+    } : undefined,
+  };
+};
+
 export const flareChainService = {
   // Create a new Flare chain
   async createChain(
@@ -484,7 +541,9 @@ export const flareChainService = {
       const chains: FlareChain[] = [];
       
       querySnapshot.forEach((doc) => {
-        chains.push({ id: doc.id, ...doc.data() } as FlareChain);
+        const rawData = doc.data();
+        const convertedData = convertChainTimestamps(rawData);
+        chains.push({ id: doc.id, ...convertedData } as FlareChain);
       });
       
       console.log(`Found ${chains.length} active chains for user ${userId}`);
@@ -504,15 +563,39 @@ export const flareChainService = {
   // Get a specific chain by ID
   async getChainById(chainId: string): Promise<FlareChain | null> {
     try {
+      console.log('🔍 Fetching chain by ID:', chainId);
       const chainDoc = await getDoc(doc(firestore, 'flareChains', chainId));
       
       if (!chainDoc.exists()) {
+        console.log('❌ Chain document not found:', chainId);
         return null;
       }
       
-      return { id: chainDoc.id, ...chainDoc.data() } as FlareChain;
+      const rawData = chainDoc.data();
+      console.log('📄 Raw chain data retrieved:', { 
+        id: chainDoc.id, 
+        hasTimestamps: !!rawData?.currentTurnExpiresAt 
+      });
+      
+      // Convert Firestore Timestamps to Date objects
+      const convertedData = convertChainTimestamps(rawData);
+      
+      const result = { 
+        id: chainDoc.id, 
+        ...convertedData 
+      } as FlareChain;
+      
+      console.log('✅ Chain data with converted timestamps:', {
+        id: result.id,
+        currentTurnExpiresAt: result.currentTurnExpiresAt,
+        expiresAt: result.expiresAt,
+        participantsCount: result.participants?.length || 0,
+        photosCount: result.photos?.length || 0
+      });
+      
+      return result;
     } catch (error) {
-      console.error('Error getting chain:', error);
+      console.error('❌ Error getting chain:', error);
       return null;
     }
   },
@@ -537,7 +620,9 @@ export const flareChainService = {
       const chains: FlareChain[] = [];
       
       querySnapshot.forEach((doc) => {
-        chains.push({ id: doc.id, ...doc.data() } as FlareChain);
+        const rawData = doc.data();
+        const convertedData = convertChainTimestamps(rawData);
+        chains.push({ id: doc.id, ...convertedData } as FlareChain);
       });
       
       console.log(`Found ${chains.length} chain history items for user ${userId}`);

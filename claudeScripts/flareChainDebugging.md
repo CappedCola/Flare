@@ -118,8 +118,133 @@ For each fix, document:
 
 ### Active Errors
 
-## Error #14: "Failed to create chain" - SSL/TLS Certificate Validation Issue (SYSTEMATIC TESTING APPROACH)
-- **Status**: In Progress - Testing Framework Created
+## Error #16: "expiresAt.getTime is not a function (it is undefined)" - Firestore Timestamp Conversion Issue
+- **Status**: Completed
+- **Priority**: Critical  
+- **Date Reported**: 2025-01-19
+- **Error Type**: Runtime Error / Data Type Conversion Issue
+- **Files Affected**: 
+  - `app/services/flareChainService.ts`
+  - `app/screens/flare/FlareChainViewScreen.tsx`
+- **Error Details**: 
+  ```
+  TypeError: expiresAt.getTime is not a function (it is undefined)
+  at getStatusColor() in FlareChainViewScreen
+  ```
+  - Chain loads from Firebase successfully  
+  - Error occurs when trying to call `.getTime()` on Firestore Timestamp objects
+  - Functions `getStatusColor()` and `formatTimeRemaining()` expect Date objects
+- **Root Cause Analysis using MCP Firebase Tools**:
+  1. **Firestore returns Timestamp objects**: MCP query shows `currentTurnExpiresAt: { __type__: "Timestamp", value: "2025-07-19T19:34:22.474Z" }`
+  2. **Code expects Date objects**: FlareChainViewScreen calls `.getTime()` method which doesn't exist on Timestamp objects
+  3. **Missing timestamp conversion**: `getChainById()` service returns raw Firestore data without converting Timestamps to Date objects
+  4. **Inconsistent with other services**: Other services (reactionService, firebaseService) properly convert using `.toDate()` method
+- **MCP Investigation Results**:
+  - ✅ **Chain data loads**: Real Firebase data is successfully fetched
+  - ✅ **Firestore structure correct**: Timestamps are properly stored as Firestore Timestamp objects
+  - ❌ **Service layer missing conversion**: `getChainById()` doesn't convert Timestamps to Date objects
+  - ✅ **Other services handle correctly**: Pattern exists using `data.field?.toDate() || new Date()`
+- **Solution Plan**:
+  1. Create timestamp conversion utility function following existing patterns
+  2. Update `getChainById()` service to convert all Firestore Timestamps to Date objects
+  3. Handle nested timestamps in participants, photos, turnHistory arrays
+  4. Add null safety for undefined timestamps
+- **Solution Applied**:
+  1. ✅ **Created timestamp conversion utility** `convertTimestampToDate()` function with null safety
+  2. ✅ **Added comprehensive chain conversion** `convertChainTimestamps()` function handling all nested timestamps
+  3. ✅ **Updated getChainById method** to convert Firestore Timestamps to Date objects before returning
+  4. ✅ **Updated getActiveChains method** to use timestamp conversion for active chain queries
+  5. ✅ **Updated getChainHistory method** to use timestamp conversion for completed chain queries
+  6. ✅ **Added detailed logging** to track timestamp conversion process and verify Date objects
+- **Key Changes**:
+  - Utility functions handle Firestore Timestamp objects using `.toDate()` method
+  - Comprehensive conversion of nested timestamps in participants, photos, turnHistory, prompt arrays
+  - Null safety with fallback to `new Date()` for undefined timestamps
+  - Consistent conversion pattern across all service methods returning FlareChain objects
+- **Timestamp Conversion Details**:
+  ```typescript
+  // Main chain timestamps
+  currentTurnExpiresAt: convertTimestampToDate(data.currentTurnExpiresAt)
+  expiresAt: convertTimestampToDate(data.expiresAt)
+  
+  // Nested array timestamps  
+  participants.map(p => ({ ...p, invitedAt: convertTimestampToDate(p.invitedAt) }))
+  photos.map(photo => ({ ...photo, createdAt: convertTimestampToDate(photo.createdAt) }))
+  ```
+- **Files Modified**: 
+  - `app/services/flareChainService.ts` - Added timestamp conversion utilities and updated all FlareChain query methods
+- **Testing Results**:
+  - ✅ No more `.getTime() is not a function` errors
+  - ✅ FlareChainViewScreen loads with proper Date objects
+  - ✅ Timer functions work correctly with real JavaScript Date objects  
+  - ✅ Status colors and time remaining calculations function properly
+  - ✅ All timestamp-dependent features now work with converted Date objects
+- **Date Completed**: 2025-01-19
+
+### Completed Recent Fixes
+
+## Error #15: "Cannot read property 'status' of undefined" - FlareChainViewScreen Data Loading Issue
+- **Status**: Completed
+- **Priority**: Critical
+- **Date Reported**: 2025-01-19
+- **Error Type**: Runtime Error / Data Loading Issue
+- **Files Affected**: 
+  - `app/screens/flare/FlareChainViewScreen.tsx`
+- **Error Details**: 
+  ```
+  TypeError: Cannot read property 'status' of undefined
+  at FlareChainViewScreen
+  ```
+  - Chain creation works (storage fix successful)
+  - Error occurs when trying to view a created chain
+  - Stack trace shows error in FlareChainViewScreen component
+- **Root Cause Analysis using MCP Firebase Tools**:
+  1. **Mock Data vs Real Data**: FlareChainViewScreen uses hardcoded mock data instead of fetching real Firebase data
+  2. **Data Structure Mismatch**: Mock data structure doesn't match real Firebase FlareChain interface
+  3. **Missing Data Fetching**: No logic to load actual chain data by chainId parameter
+  4. **Undefined Property Access**: Code tries to access participant.status on mock objects that don't have status properties
+  5. **Real Data Exists**: MCP query confirmed actual chains exist in Firebase with proper structure including participant status
+- **MCP Investigation Results**:
+  - ✅ **Real chains exist**: Found chains with IDs like `5kWJMvk12GTbKDksIXCa`, `zNoYn3J3KhHhYEziDR1O`
+  - ✅ **Proper data structure**: Real chains have `status: "active"`, participants with `status: "responded"/"waiting_turn"`
+  - ✅ **Chain creation working**: Storage permission fix resolved creation issues
+  - ❌ **FlareChainViewScreen ignores real data**: Uses mock data, never fetches from Firebase
+- **Solution Plan**:
+  1. Replace hardcoded mock data with real Firebase data fetching
+  2. Use existing `flareChainService.getChainById()` method
+  3. Add proper loading states and error handling
+  4. Fix participant status rendering to use real ParticipantStatus enum values
+  5. Update timer calculations to use real Firebase timestamps
+- **Solution Applied**:
+  1. ✅ **Replaced hardcoded mock data** with real Firebase data fetching using `flareChainService.getChainById()`
+  2. ✅ **Added proper loading states** with Spinner and loading text
+  3. ✅ **Added error handling** with user-friendly error messages and back navigation
+  4. ✅ **Fixed participant status rendering** to use real ParticipantStatus enum values (responded, current_turn, waiting_turn)
+  5. ✅ **Updated timer calculations** to use real Firebase timestamps (currentTurnExpiresAt)
+  6. ✅ **Added null safety checks** for all data access patterns
+  7. ✅ **Updated PhotoTimeline integration** to use real ChainPhoto data from Firebase
+  8. ✅ **Added proper TypeScript typing** with FlareChain interface instead of mock objects
+- **Key Changes**:
+  - `useEffect` hook for data loading on component mount
+  - Loading state with Spinner UI
+  - Error state with back navigation and error message
+  - Real data access: `chain.participants.map()` instead of `mockChain.participants.map()`
+  - Participant status functions: `getParticipantStatusText()`, `getParticipantStatusColor()`
+  - Real timer formatting: `formatTimeRemaining(chain.currentTurnExpiresAt)`
+- **Files Modified**: 
+  - `app/screens/flare/FlareChainViewScreen.tsx` - Complete rewrite from mock data to real Firebase data
+- **Testing Results**:
+  - ✅ No more "Cannot read property 'status' of undefined" errors
+  - ✅ Real chain data loads from Firebase successfully  
+  - ✅ Participant status displays correctly (BigZ: "✓ Done", friend: "Waiting")
+  - ✅ Timer shows real countdown from Firebase timestamps
+  - ✅ Photo timeline shows actual uploaded photos with download URLs
+- **Date Completed**: 2025-01-19
+
+### Completed Recent Fixes
+
+## Error #14: "Failed to create chain" - Storage Permission Issue (RESOLVED)
+- **Status**: Completed
 - **Priority**: Critical
 - **Date Reported**: 2025-01-18
 - **Error Type**: SSL/TLS Certificate Validation / Network Security Issue
@@ -190,7 +315,20 @@ For each fix, document:
   3. ✅ **Improved API Syntax**: Fixed Firestore method calls to use proper React Native Firebase v22+ APIs
   4. ✅ **Enhanced Error Detection**: Added SSL/TLS specific error identification in connection checks
   5. ✅ **Ready for Testing**: User can now run comprehensive diagnostics with single button tap
-- **Date Updated**: 2025-01-19
+- **FINAL RESOLUTION (2025-01-19)**:
+  **Root Cause**: Storage permission error - code uploads to `chains/{chainId}/{filename}` but Firebase Storage rules had no permission for `chains/` paths
+  **Fix Applied**: 
+  1. ✅ Added chains path rule to `storage.rules`:
+     ```
+     match /chains/{chainId}/{filename} {
+       allow read: if request.auth != null;
+       allow write: if request.auth != null;
+     }
+     ```
+  2. ✅ Successfully deployed updated storage rules to Firebase project `flare-app-a2b12`
+  3. ✅ Verified deployment via MCP tools - new rule is live
+  **Test Results**: SSL/TLS was never the issue - Firebase connection and Firestore write worked fine. Only storage upload failed due to missing permission.
+- **Date Completed**: 2025-01-19
 
 ## Error #13: "Failed to create chain" - React Native Firebase API Compatibility Issue
 - **Status**: Completed

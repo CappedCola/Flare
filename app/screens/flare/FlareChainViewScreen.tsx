@@ -1,77 +1,79 @@
-import React, { useState } from 'react';
-import { Layout, Text, Card, Button } from '@ui-kitten/components';
-import { StyleSheet, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Layout, Text, Card, Button, Spinner } from '@ui-kitten/components';
+import { StyleSheet, ScrollView, Dimensions, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { Clock, Users, Heart, MessageCircle, Share, Expand } from 'lucide-react-native';
+import { Clock, Users, Heart, MessageCircle, Share, ArrowLeft } from 'lucide-react-native';
 import { PhotoTimeline } from '../../components/PhotoTimeline';
 import { FullscreenImageViewer } from '../../components/FullscreenImageViewer';
+import { FlareChain, ChainParticipant } from '../../types';
+import { ParticipantStatus, ChainStatus } from '../../types/flare';
+import { flareChainService } from '../../services/flareChainService';
+import { useAuth } from '../../context/AuthContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export const FlareChainViewScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
-  const chainId = (route.params as any)?.chainId || 'demo-chain';
+  const { user } = useAuth();
+  const chainId = (route.params as any)?.chainId;
   
+  const [chain, setChain] = useState<FlareChain | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
 
+  // Load chain data from Firebase
+  useEffect(() => {
+    const loadChain = async () => {
+      if (!chainId) {
+        setError('No chain ID provided');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('🔍 Loading chain data for ID:', chainId);
+        const chainData = await flareChainService.getChainById(chainId);
+        
+        if (!chainData) {
+          setError('Chain not found');
+          setLoading(false);
+          return;
+        }
+        
+        console.log('✅ Chain data loaded:', chainData);
+        setChain(chainData);
+      } catch (err) {
+        console.error('❌ Error loading chain:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load chain');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadChain();
+  }, [chainId]);
+
   const handleOpenChat = () => {
-    navigation.navigate('FlareChat' as never, { chainId } as never);
+    if (chainId) {
+      navigation.navigate('FlareChat' as never, { chainId } as never);
+    }
   };
 
   const handleViewCompletion = () => {
-    navigation.navigate('FlareCompletion' as never, { chainId } as never);
+    if (chainId) {
+      navigation.navigate('FlareCompletion' as never, { chainId } as never);
+    }
   };
 
-  // Mock chain data with photos - can be 'active', 'completed', or 'expired'
-  const mockChain = {
-    id: chainId,
-    status: chainId.includes('completed') ? 'completed' : 'active',
-    prompt: {
-      title: 'Emotions',
-      description: 'Share how you\'re feeling right now',
-      color: '#FF6B6B',
-    },
-    creator: 'alice_photo',
-    createdAt: new Date('2024-01-15T10:30:00'),
-    participants: [
-      { username: 'alice_photo', avatar: '👩‍🎨' },
-      { username: 'bob_creative', avatar: '👨‍💻' },
-      { username: 'you', avatar: '👤' },
-      { username: 'charlie_lens', avatar: '📸' },
-    ],
-    photos: [
-      {
-        id: '1',
-        username: 'alice_photo',
-        interpretation: 'Feeling creative today! This sunrise inspires me.',
-        timestamp: new Date('2024-01-15T10:35:00'),
-        likes: ['bob_creative', 'you'],
-        position: 1,
-        photoUrl: 'https://picsum.photos/400/300?random=1',
-        userAvatar: '👩‍🎨',
-        reactions: [
-          { id: '1', userId: 'bob_creative', username: 'bob_creative', emoji: '❤️', createdAt: new Date() },
-          { id: '2', userId: 'you', username: 'you', emoji: '😍', createdAt: new Date() },
-        ],
-      },
-      {
-        id: '2',
-        username: 'bob_creative',
-        interpretation: 'Coding makes me happy - my morning coffee setup',
-        timestamp: new Date('2024-01-15T11:20:00'),
-        likes: ['alice_photo'],
-        position: 2,
-        photoUrl: 'https://picsum.photos/400/300?random=2',
-        userAvatar: '👨‍💻',
-        reactions: [
-          { id: '3', userId: 'alice_photo', username: 'alice_photo', emoji: '👏', createdAt: new Date() },
-        ],
-      },
-    ],
-    timeRemaining: mockChain.status === 'completed' ? 0 : 2340000, // 39 minutes or 0 if completed
+  const handleBack = () => {
+    navigation.goBack();
   };
 
   const formatTimeAgo = (date: Date) => {
@@ -84,16 +86,65 @@ export const FlareChainViewScreen = () => {
     return `${diffHours}h ago`;
   };
 
-  const formatTimeRemaining = (ms: number) => {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
+  const formatTimeRemaining = (expiresAt: Date) => {
+    const now = new Date();
+    const diffMs = expiresAt.getTime() - now.getTime();
+    
+    if (diffMs <= 0) return 'Expired';
+    
+    const minutes = Math.floor(diffMs / 60000);
+    const seconds = Math.floor((diffMs % 60000) / 1000);
+    
+    if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const remainingMins = minutes % 60;
+      return `${hours}h ${remainingMins}m`;
+    }
+    
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const getStatusColor = () => {
-    if (mockChain.timeRemaining > 900000) return '#4ECDC4';
-    if (mockChain.timeRemaining > 300000) return '#FFD93D';
-    return '#FF6B6B';
+  const getStatusColor = (expiresAt: Date) => {
+    const now = new Date();
+    const diffMs = expiresAt.getTime() - now.getTime();
+    
+    if (diffMs <= 0) return '#95A5A6'; // Expired
+    if (diffMs > 900000) return '#4ECDC4'; // > 15 minutes - green
+    if (diffMs > 300000) return '#FFD93D'; // > 5 minutes - yellow
+    return '#FF6B6B'; // < 5 minutes - red
+  };
+
+  const getParticipantStatusText = (participant: ChainParticipant) => {
+    switch (participant.status) {
+      case ParticipantStatus.RESPONDED:
+        return '✓ Done';
+      case ParticipantStatus.CURRENT_TURN:
+        return 'Current';
+      case ParticipantStatus.WAITING_TURN:
+        return 'Waiting';
+      case ParticipantStatus.TURN_EXPIRED:
+        return 'Expired';
+      case ParticipantStatus.SKIPPED:
+        return 'Skipped';
+      default:
+        return 'Waiting';
+    }
+  };
+
+  const getParticipantStatusColor = (participant: ChainParticipant) => {
+    switch (participant.status) {
+      case ParticipantStatus.RESPONDED:
+        return '#4ECDC4';
+      case ParticipantStatus.CURRENT_TURN:
+        return '#FF4D4D';
+      case ParticipantStatus.WAITING_TURN:
+        return '#CCC';
+      case ParticipantStatus.TURN_EXPIRED:
+      case ParticipantStatus.SKIPPED:
+        return '#95A5A6';
+      default:
+        return '#CCC';
+    }
   };
 
   const handlePhotoPress = (photo: any, index: number) => {
@@ -107,42 +158,76 @@ export const FlareChainViewScreen = () => {
   };
 
   const handleNavigatePhoto = (direction: 'prev' | 'next') => {
-    if (selectedPhotoIndex === null) return;
+    if (selectedPhotoIndex === null || !chain) return;
     
     if (direction === 'prev' && selectedPhotoIndex > 0) {
       setSelectedPhotoIndex(selectedPhotoIndex - 1);
-    } else if (direction === 'next' && selectedPhotoIndex < mockChain.photos.length - 1) {
+    } else if (direction === 'next' && selectedPhotoIndex < chain.photos.length - 1) {
       setSelectedPhotoIndex(selectedPhotoIndex + 1);
     }
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Layout style={[styles.container, styles.centered]}>
+          <Spinner size="large" />
+          <Text category="s1" style={styles.loadingText}>Loading chain...</Text>
+        </Layout>
+      </SafeAreaView>
+    );
+  }
+
+  // Error state
+  if (error || !chain) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Layout style={[styles.container, styles.centered]}>
+          <Text category="h6" style={styles.errorTitle}>Chain Not Found</Text>
+          <Text category="s1" appearance="hint" style={styles.errorText}>
+            {error || 'This chain does not exist or you do not have access to it.'}
+          </Text>
+          <Button
+            style={styles.errorButton}
+            status="basic"
+            accessoryLeft={(props) => <ArrowLeft {...props} size={16} />}
+            onPress={handleBack}
+          >
+            Go Back
+          </Button>
+        </Layout>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <Layout style={styles.container}>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           {/* Chain Header */}
-          <Card style={[styles.headerCard, { borderTopColor: mockChain.prompt.color }]}>
+          <Card style={[styles.headerCard, { borderTopColor: chain.prompt?.emoji ? '#4ECDC4' : '#FF6B6B' }]}>
             <Layout style={styles.headerContent}>
               <Layout style={styles.promptSection}>
                 <Text category="h6" style={styles.promptTitle}>
-                  {mockChain.prompt.title}
+                  {chain.prompt?.emoji} {chain.prompt?.title || 'Flare Chain'}
                 </Text>
                 <Text category="s1" style={styles.promptText}>
-                  "{mockChain.prompt.description}"
+                  "{chain.prompt?.description || 'Share your moment'}"
                 </Text>
               </Layout>
               
               <Layout style={styles.chainStats}>
                 <Layout style={styles.statItem}>
-                  <Clock size={16} color={getStatusColor()} />
-                  <Text category="c1" style={[styles.statText, { color: getStatusColor() }]}>
-                    {formatTimeRemaining(mockChain.timeRemaining)} left
+                  <Clock size={16} color={getStatusColor(chain.currentTurnExpiresAt)} />
+                  <Text category="c1" style={[styles.statText, { color: getStatusColor(chain.currentTurnExpiresAt) }]}>
+                    {formatTimeRemaining(chain.currentTurnExpiresAt)} left
                   </Text>
                 </Layout>
                 <Layout style={styles.statItem}>
                   <Users size={16} color="#666" />
                   <Text category="c1" style={styles.statText}>
-                    {mockChain.participants.length} participants
+                    {chain.participants.length} participants
                   </Text>
                 </Layout>
               </Layout>
@@ -154,30 +239,37 @@ export const FlareChainViewScreen = () => {
             <Text category="h6" style={styles.sectionTitle}>Chain Progress</Text>
             <Card style={styles.progressCard}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.participantsScroll}>
-                {mockChain.participants.map((participant, index) => {
-                  const hasPhoto = mockChain.photos.some(p => p.username === participant.username);
-                  const isNext = !hasPhoto && index === mockChain.photos.length;
+                {chain.participants.map((participant, index) => {
+                  const statusColor = getParticipantStatusColor(participant);
+                  const statusText = getParticipantStatusText(participant);
+                  const isCurrentTurn = participant.status === ParticipantStatus.CURRENT_TURN;
                   
                   return (
-                    <Layout key={participant.username} style={styles.participantItem}>
+                    <Layout key={participant.userId} style={styles.participantItem}>
                       <Layout style={[
                         styles.participantAvatar,
                         {
-                          backgroundColor: hasPhoto ? '#E8F5E8' : isNext ? '#FFF5E8' : '#F5F5F5',
-                          borderColor: isNext ? '#FF4D4D' : 'transparent',
-                          borderWidth: isNext ? 2 : 0,
+                          backgroundColor: participant.status === ParticipantStatus.RESPONDED 
+                            ? '#E8F5E8' 
+                            : isCurrentTurn 
+                              ? '#FFF5E8' 
+                              : '#F5F5F5',
+                          borderColor: isCurrentTurn ? '#FF4D4D' : 'transparent',
+                          borderWidth: isCurrentTurn ? 2 : 0,
                         }
                       ]}>
-                        <Text style={styles.avatarText}>{participant.avatar}</Text>
+                        <Text style={styles.avatarText}>
+                          {participant.avatar || (participant.username?.charAt(0).toUpperCase() || '👤')}
+                        </Text>
                       </Layout>
                       <Text category="c1" style={styles.participantName}>
                         {participant.username}
                       </Text>
                       <Text category="c2" style={[
                         styles.participantStatus,
-                        { color: hasPhoto ? '#4ECDC4' : isNext ? '#FF4D4D' : '#CCC' }
+                        { color: statusColor }
                       ]}>
-                        {hasPhoto ? '✓ Done' : isNext ? 'Current' : 'Waiting'}
+                        {statusText}
                       </Text>
                     </Layout>
                   );
@@ -191,98 +283,17 @@ export const FlareChainViewScreen = () => {
             <Text category="h6" style={styles.sectionTitle}>Photo Timeline</Text>
             <PhotoTimeline
               chainId={chainId}
-              photos={mockChain.photos}
-              participants={mockChain.participants}
-              currentUserId="you"
+              photos={chain.photos || []}
+              participants={chain.participants}
+              currentUserId={user?.id || 'anonymous'}
               onPhotoPress={handlePhotoPress}
               onReactionAdd={handleReactionAdd}
             />
           </Layout>
 
-          {/* Legacy Timeline (keeping for reference) */}
-          <Layout style={[styles.section, { display: 'none' }]}>
-            {mockChain.photos.map((photo, index) => (
-              <Card key={photo.id} style={styles.photoCard}>
-                <Layout style={styles.photoHeader}>
-                  <Layout style={styles.photoUser}>
-                    <Layout style={styles.userAvatar}>
-                      <Text style={styles.userAvatarText}>
-                        {mockChain.participants.find(p => p.username === photo.username)?.avatar}
-                      </Text>
-                    </Layout>
-                    <Layout style={styles.userInfo}>
-                      <Text category="s2" style={styles.username}>
-                        {photo.username}
-                      </Text>
-                      <Text category="c1" appearance="hint">
-                        {formatTimeAgo(photo.timestamp)}
-                      </Text>
-                    </Layout>
-                  </Layout>
-                  <Text category="c1" style={styles.positionText}>
-                    #{photo.position}
-                  </Text>
-                </Layout>
-
-                {/* Photo placeholder */}
-                <Layout style={styles.photoPlaceholder}>
-                  <Text category="h6" style={styles.photoPlaceholderText}>
-                    📸
-                  </Text>
-                  <Text category="c1" appearance="hint">
-                    Photo would appear here
-                  </Text>
-                </Layout>
-
-                {/* Photo interpretation */}
-                <Layout style={styles.photoContent}>
-                  <Text category="s1" style={styles.interpretationText}>
-                    {photo.interpretation}
-                  </Text>
-                  
-                  <Layout style={styles.photoActions}>
-                    <Layout style={styles.actionItem}>
-                      <Heart
-                        size={16}
-                        color={photo.likes.includes('you') ? '#FF4D4D' : '#CCC'}
-                        fill={photo.likes.includes('you') ? '#FF4D4D' : 'transparent'}
-                      />
-                      <Text category="c1" style={styles.actionText}>
-                        {photo.likes.length}
-                      </Text>
-                    </Layout>
-                    <Layout style={styles.actionItem}>
-                      <MessageCircle size={16} color="#CCC" />
-                      <Text category="c1" style={styles.actionText}>
-                        0
-                      </Text>
-                    </Layout>
-                  </Layout>
-                </Layout>
-              </Card>
-            ))}
-
-            {/* Next participant indicator */}
-            {mockChain.status === 'active' && (
-              <Card style={styles.nextCard}>
-                <Layout style={styles.nextContent}>
-                  <Clock size={24} color="#FFD93D" />
-                  <Layout style={styles.nextText}>
-                    <Text category="s1" style={styles.nextTitle}>
-                      Waiting for next photo...
-                    </Text>
-                    <Text category="c1" appearance="hint">
-                      {mockChain.participants[mockChain.photos.length]?.username} is up next
-                    </Text>
-                  </Layout>
-                </Layout>
-              </Card>
-            )}
-          </Layout>
-
           {/* Chain Actions */}
           <Layout style={styles.section}>
-            {mockChain.status === 'completed' ? (
+            {chain.status === ChainStatus.COMPLETED ? (
               <Button
                 style={styles.actionButton}
                 status="success"
@@ -318,13 +329,13 @@ export const FlareChainViewScreen = () => {
             setShowFullscreen(false);
             setSelectedPhotoIndex(null);
           }}
-          chainPhoto={selectedPhotoIndex !== null ? mockChain.photos[selectedPhotoIndex] : undefined}
-          chainPhotos={mockChain.photos}
+          chainPhoto={selectedPhotoIndex !== null && chain.photos ? chain.photos[selectedPhotoIndex] : undefined}
+          chainPhotos={chain.photos || []}
           currentPhotoIndex={selectedPhotoIndex || 0}
           onNavigate={handleNavigatePhoto}
           onReactionAdd={handleReactionAdd}
-          currentUserId="you"
-          currentUsername="Current User"
+          currentUserId={user?.id || 'anonymous'}
+          currentUsername={user?.username || 'You'}
         />
       </Layout>
     </SafeAreaView>
@@ -334,6 +345,27 @@ export const FlareChainViewScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingText: {
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  errorTitle: {
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorText: {
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  errorButton: {
+    marginTop: 12,
   },
   scrollView: {
     flex: 1,
