@@ -19,6 +19,15 @@ service firebase.storage {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
     
+    // Personal photos for direct sharing/messaging
+    match /personal_photos/{userId}/{filename} {
+      // Allow authenticated users to read personal photos
+      allow read: if request.auth != null;
+      
+      // Only allow the photo owner to upload/update/delete their personal photos
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
     // Thumbnails and processed images
     match /thumbnails/{userId}/{filename} {
       // Allow authenticated users to read all thumbnails

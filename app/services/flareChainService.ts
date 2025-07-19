@@ -1,6 +1,7 @@
 import { FlareChain, ChainParticipant, ChainPhoto, ChainPrompt, User, TurnRecord } from '../types';
 import { ChainStatus, ParticipantStatus } from '../types/flare';
 import { firestore, storage } from '../config/firebase';
+import { getUserById, withFirebaseRetry, handleFirebaseError } from './firebaseService';
 import { 
   collection, 
   doc, 
@@ -20,7 +21,7 @@ import {
   arrayRemove,
   increment
 } from '@react-native-firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from '@react-native-firebase/storage';
+// No additional imports needed - storage is imported from config/firebase
 
 export const flareChainService = {
   // Create a new Flare chain
@@ -32,6 +33,24 @@ export const flareChainService = {
     firstPhotoUri?: string
   ): Promise<FlareChain> {
     try {
+      console.log('🔥 Starting chain creation...', { 
+        creatorId, 
+        participants: participantUserIds.length, 
+        hasPhoto: !!firstPhotoUri 
+      });
+      
+      // Get creator's user data
+      console.log('📱 Fetching creator user data...', creatorId);
+      const creatorUser = await getUserById(creatorId);
+      if (!creatorUser) {
+        console.error('❌ Creator user not found:', creatorId);
+        throw new Error('Creator user not found');
+      }
+      console.log('✅ Creator user found:', { 
+        username: creatorUser.username, 
+        displayName: creatorUser.displayName 
+      });
+      
       // Create chain document
       const chainRef = doc(collection(firestore, 'flareChains'));
       const chainId = chainRef.id;
@@ -40,14 +59,20 @@ export const flareChainService = {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       
-      // Calculate current turn expiration (1 hour from now for first participant)
+      // Calculate current turn expiration (1 hour from now for first participant)  
       const currentTurnExpiresAt = new Date(now.getTime() + 60 * 60 * 1000);
+      
+      console.log('⏰ Timestamps calculated:', { 
+        now: now.toISOString(), 
+        expiresAt: expiresAt.toISOString(),
+        currentTurnExpiresAt: currentTurnExpiresAt.toISOString()
+      });
       
       // Create participants array with creator first
       const participants: ChainParticipant[] = [
         {
           userId: creatorId,
-          username: 'current-user', // TODO: Get from auth context
+          username: creatorUser.username || creatorUser.displayName || 'User',
           status: firstPhotoUri ? ParticipantStatus.RESPONDED : ParticipantStatus.CURRENT_TURN,
           position: 0,
           invitedAt: now,
@@ -56,10 +81,12 @@ export const flareChainService = {
       ];
 
       // Add selected participants (they start in waiting status)
+      // Note: For performance, we'll fetch participant usernames when needed
+      // The security rules only require userId fields to match
       participantUserIds.forEach((userId, index) => {
         participants.push({
           userId,
-          username: `user-${userId}`, // TODO: Get actual username from user data
+          username: `user-${userId}`, // Will be updated when they first interact
           status: ParticipantStatus.WAITING_TURN,
           position: index + 1,
           invitedAt: now,
@@ -72,7 +99,7 @@ export const flareChainService = {
       // Start first turn record
       const firstTurnRecord: TurnRecord = {
         userId: creatorId,
-        username: 'current-user',
+        username: creatorUser.username || creatorUser.displayName || 'User',
         position: 0,
         startedAt: now,
         photoSubmitted: !!firstPhotoUri,
@@ -87,7 +114,7 @@ export const flareChainService = {
       const newChain: FlareChain = {
         id: chainId,
         creatorId,
-        creatorUsername: 'current-user', // TODO: Get from auth context
+        creatorUsername: creatorUser.username || creatorUser.displayName || 'User',
         prompt,
         status: ChainStatus.ACTIVE,
         participants,
@@ -104,12 +131,15 @@ export const flareChainService = {
 
       // Upload first photo if provided
       if (firstPhotoUri) {
+        console.log('📸 Uploading first photo...', firstPhotoUri);
         const photoUrl = await this.uploadChainPhoto(chainId, creatorId, firstPhotoUri);
+        console.log('✅ Photo uploaded successfully:', photoUrl);
+        
         const firstPhoto: ChainPhoto = {
           id: `${chainId}-0`,
           chainId,
           userId: creatorId,
-          username: 'current-user',
+          username: creatorUser.username || creatorUser.displayName || 'User',
           photoUrl,
           position: 0,
           createdAt: now,
@@ -119,24 +149,50 @@ export const flareChainService = {
         newChain.photos = [firstPhoto];
       }
 
-      // Save to Firestore
-      await setDoc(chainRef, {
-        ...newChain,
-        createdAt: serverTimestamp(),
-        expiresAt: serverTimestamp(),
-      });
+      // Save to Firestore with enhanced error handling
+      console.log('💾 Saving chain to Firestore...', chainId);
+      await withFirebaseRetry(async () => {
+        const chainData = {
+          ...newChain,
+          createdAt: serverTimestamp(),
+          // Keep calculated future timestamps as Date objects - Firestore will convert properly
+          expiresAt: newChain.expiresAt,
+          currentTurnExpiresAt: newChain.currentTurnExpiresAt
+        };
+        
+        console.log('📄 Document data structure:', {
+          id: chainData.id,
+          creatorId: chainData.creatorId,
+          participantIds: chainData.participantIds,
+          status: chainData.status,
+          photosCount: chainData.photos.length
+        });
+        
+        await setDoc(chainRef, chainData);
+      }, 'create flare chain');
+      console.log('✅ Chain saved to Firestore successfully');
 
       // Create notifications for invited participants
-      await this.sendChainInvitations(chainId, participantUserIds, prompt.title);
+      try {
+        await this.sendChainInvitations(chainId, participantUserIds, prompt.title);
+      } catch (error) {
+        // Don't fail chain creation if notifications fail
+        console.warn('Failed to send chain invitations:', error);
+      }
 
       // TODO: Create group chat
       // newChain.groupChatId = await this.createGroupChat(chainId, participants);
 
-      console.log('Chain created successfully:', chainId);
+      console.log('🎉 Chain created successfully!', chainId);
       return newChain;
-    } catch (error) {
-      console.error('Error creating chain:', error);
-      throw error;
+    } catch (error: any) {
+      console.error('💥 Error creating chain:', error);
+      console.error('Error details:', { 
+        message: error.message, 
+        code: error.code, 
+        stack: error.stack 
+      });
+      throw handleFirebaseError(error, 'create flare chain');
     }
   },
 
@@ -282,22 +338,33 @@ export const flareChainService = {
     }
   },
 
-  // Upload photo to Firebase Storage
+  // Upload photo to Firebase Storage using React Native Firebase v6 API
   async uploadChainPhoto(chainId: string, userId: string, photoUri: string): Promise<string> {
     try {
-      const response = await fetch(photoUri);
-      const blob = await response.blob();
+      console.log('Starting chain photo upload...', { chainId, userId, photoUri });
       
+      // Create filename and storage reference using React Native Firebase v6 API
       const filename = `chains/${chainId}/${userId}-${Date.now()}.jpg`;
-      const storageRef = ref(storage, filename);
+      const storageRef = storage.ref(filename);
       
-      await uploadBytes(storageRef, blob);
-      const downloadURL = await getDownloadURL(storageRef);
+      console.log('Uploading to:', filename);
       
+      // Use putFile() for React Native Firebase v6 - handles local file URIs directly
+      const task = storageRef.putFile(photoUri);
+      
+      // Wait for upload completion
+      await task;
+      
+      console.log('Upload completed, getting download URL...');
+      
+      // Get download URL using React Native Firebase v6 API
+      const downloadURL = await storageRef.getDownloadURL();
+      
+      console.log('Chain photo uploaded successfully:', downloadURL);
       return downloadURL;
     } catch (error) {
       console.error('Error uploading chain photo:', error);
-      throw error;
+      throw new Error(`Failed to upload chain photo: ${error.message}`);
     }
   },
 

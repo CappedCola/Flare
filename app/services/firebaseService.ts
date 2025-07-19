@@ -1,6 +1,109 @@
 import { User, Post, Comment, Streak, PhotoMetadata, PersonalPost, FriendRequest, MutualFriend } from '../types';
-import { auth, firestore, storage } from '../config/firebase';
+import { auth, firestore, storage, checkFirebaseConnection, isFirebaseInitialized } from '../config/firebase';
 import { formatTimeAgo } from '../utils/helpers';
+
+// Comprehensive Firebase Error Handler
+export const handleFirebaseError = (error: any, operation: string): Error => {
+  if (__DEV__) {
+    console.error(`Firebase Error in ${operation}:`, error);
+  }
+
+  // Common Firebase error codes and user-friendly messages
+  switch (error.code) {
+    case 'auth/network-request-failed':
+      return new Error('Network connection failed. Please check your internet connection and try again.');
+    
+    case 'firestore/permission-denied':
+      return new Error('Permission denied. Please make sure you are signed in and have the necessary permissions.');
+    
+    case 'firestore/unavailable':
+      return new Error('Service temporarily unavailable. Please try again in a moment.');
+    
+    case 'firestore/not-found':
+      return new Error('The requested data was not found.');
+    
+    case 'firestore/failed-precondition':
+      return new Error('Operation failed due to system constraints. Please try again.');
+    
+    case 'storage/unauthorized':
+      return new Error('You are not authorized to perform this action.');
+    
+    case 'storage/object-not-found':
+      return new Error('The file you are looking for does not exist.');
+    
+    case 'storage/quota-exceeded':
+      return new Error('Storage quota exceeded. Please contact support.');
+    
+    case 'auth/user-not-found':
+      return new Error('User account not found.');
+    
+    case 'auth/wrong-password':
+      return new Error('Incorrect password.');
+    
+    case 'auth/invalid-email':
+      return new Error('Invalid email address.');
+    
+    case 'auth/user-disabled':
+      return new Error('This account has been disabled.');
+    
+    case 'auth/too-many-requests':
+      return new Error('Too many failed attempts. Please try again later.');
+    
+    default:
+      // Log unknown errors for debugging
+      if (__DEV__) {
+        console.error('Unknown Firebase error:', error.code, error.message);
+      }
+      return new Error(error.message || `Failed to ${operation}. Please try again.`);
+  }
+};
+
+// Firebase Connection Check with Retry
+export const withFirebaseRetry = async <T>(
+  operation: () => Promise<T>,
+  operationName: string,
+  maxRetries: number = 3
+): Promise<T> => {
+  // Check if Firebase is initialized
+  if (!isFirebaseInitialized()) {
+    throw new Error('Firebase is not properly initialized. Please restart the app.');
+  }
+
+  let lastError: Error;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Check connection before attempting operation
+      const isConnected = await checkFirebaseConnection();
+      if (!isConnected && attempt === 1) {
+        throw new Error('Firebase connection is not available. Please check your internet connection.');
+      }
+      
+      return await operation();
+    } catch (error: any) {
+      lastError = handleFirebaseError(error, operationName);
+      
+      // Don't retry for permission errors or invalid data errors
+      if (error.code === 'firestore/permission-denied' || 
+          error.code === 'firestore/not-found' ||
+          error.code === 'auth/user-not-found' ||
+          error.code === 'auth/wrong-password' ||
+          error.code === 'auth/invalid-email') {
+        throw lastError;
+      }
+      
+      // If this is not the last attempt, wait before retrying
+      if (attempt < maxRetries) {
+        if (__DEV__) {
+          console.warn(`${operationName} failed (attempt ${attempt}/${maxRetries}), retrying...`);
+        }
+        await new Promise(resolve => setTimeout(resolve, attempt * 1000)); // Exponential backoff
+      }
+    }
+  }
+  
+  throw lastError!;
+};
 // React Native Firebase v22+ modular API imports
 import { 
   createUserWithEmailAndPassword,

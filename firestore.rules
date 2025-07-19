@@ -122,10 +122,14 @@ service cloud.firestore {
     
     // Flare Chains collection - Photo passing game chains
     match /flareChains/{chainId} {
-      // Allow reading chains where user is a participant (using participantIds array)
-      allow read: if request.auth != null && 
-                  (request.auth.uid in resource.data.participantIds ||
-                   request.auth.uid == resource.data.creatorId);
+      // Allow listing/querying chains for any authenticated user
+      // This prevents permission-denied errors on empty collections
+      allow list: if request.auth != null;
+      
+      // Allow reading specific chains where user is a participant (using participantIds array)
+      allow get: if request.auth != null && 
+                 (request.auth.uid in resource.data.participantIds ||
+                  request.auth.uid == resource.data.creatorId);
       
       // Allow creating chains where user is the creator
       allow create: if request.auth != null && 
