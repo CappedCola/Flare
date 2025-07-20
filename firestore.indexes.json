@@ -1,21 +1,33 @@
 {
   "indexes": [
     {
-      "collectionGroup": "posts",
+      "collectionGroup": "flareChains",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
+          "fieldPath": "participantIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "currentTurnExpiresAt",
+          "order": "ASCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "posts",
+      "collectionGroup": "flareChains",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "userId",
+          "fieldPath": "participantIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "status",
           "order": "ASCENDING"
         },
         {

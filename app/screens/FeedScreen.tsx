@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FlatList, StyleSheet, View, StatusBar, Image, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { Text, Avatar, useTheme } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Heart, MessageCircle, Expand } from 'lucide-react-native';
 import { pillNavHeight } from '../constants/navigation';
-import { Post, Comment } from '../types';
+import { Post, Comment, FeedItem, ChainFeedItem, PostFeedItem, FlareChain } from '../types';
 import { getFeedPosts, likePost, subscribeToPosts } from '../services/firebaseService';
+import { flareChainService } from '../services/flareChainService';
 import { useAuth } from '../context/AuthContext';
 import { CommentModal } from '../components/CommentModal';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
+import { ChainTurnCard } from '../components/ChainTurnCard';
+import { useNavigation } from '@react-navigation/native';
 
 // Helper function to safely count unique comments
 const getUniqueCommentCount = (comments: Comment[]): number => {
@@ -160,13 +163,66 @@ const FeedPost = ({ post, onLike, onComment, onExpand, currentUserId }: {
 export const FeedScreen = () => {
   const theme = useTheme();
   const { user, isAuthenticated } = useAuth();
+  const navigation = useNavigation();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [chains, setChains] = useState<FlareChain[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [fullscreenImageVisible, setFullscreenImageVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Create unified feed from posts and chains
+  const feedItems = useMemo((): FeedItem[] => {
+    const items: FeedItem[] = [];
+    
+    console.log(`🔄 Feed: Processing ${chains.length} chains and ${posts.length} posts for user ${user?.id}`);
+    
+    // Add chains (user's current turns only)
+    chains.forEach(chain => {
+      const isUserTurn = user && flareChainService.isUserCurrentTurn(chain, user.id);
+      console.log(`🔗 Chain ${chain.id}: isUserTurn=${isUserTurn} for user ${user?.id}`);
+      
+      if (isUserTurn) {
+        const now = new Date();
+        const timeRemaining = Math.max(0, chain.currentTurnExpiresAt.getTime() - now.getTime());
+        
+        items.push({
+          type: 'chain',
+          data: chain,
+          priority: 1,
+          timestamp: chain.currentTurnExpiresAt,
+          timeRemaining,
+          isUserTurn: true,
+        } as ChainFeedItem);
+        
+        console.log(`➕ Added chain ${chain.id} to feed (${Math.floor(timeRemaining/60000)}min remaining)`);
+      }
+    });
+    
+    // Add posts
+    posts.forEach(post => {
+      items.push({
+        type: 'post',
+        data: post,
+        priority: 2,
+        timestamp: post.createdAt,
+      } as PostFeedItem);
+    });
+    
+    // Sort by priority (chains first), then by timestamp
+    const sortedItems = items.sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      return b.timestamp.getTime() - a.timestamp.getTime();
+    });
+    
+    console.log(`📱 Final feed: ${sortedItems.length} items (${sortedItems.filter(i => i.type === 'chain').length} chains, ${sortedItems.filter(i => i.type === 'post').length} posts)`);
+    
+    return sortedItems;
+  }, [posts, chains, user]);
 
   // Real-time posts subscription
   useEffect(() => {
@@ -178,8 +234,6 @@ export const FeedScreen = () => {
     const unsubscribe = subscribeToPosts(
       (newPosts) => {
         setPosts(newPosts);
-        setLoading(false);
-        setRefreshing(false);
         setError(null);
       },
       (err) => {
@@ -191,6 +245,28 @@ export const FeedScreen = () => {
 
     return unsubscribe;
   }, [isAuthenticated]);
+
+  // Real-time chains subscription
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      return;
+    }
+
+    // One-time fix for existing chain states (remove after running once)
+    flareChainService.fixExistingChainStates().catch(console.error);
+
+    const unsubscribe = flareChainService.subscribeToUserCurrentTurnChains(
+      user.id,
+      (newChains) => {
+        setChains(newChains);
+        setLoading(false);
+        setRefreshing(false);
+        setError(null);
+      }
+    );
+
+    return unsubscribe;
+  }, [isAuthenticated, user]);
 
   // Load posts from service (fallback)
   const loadPosts = async () => {
@@ -254,6 +330,49 @@ export const FeedScreen = () => {
   const handleCommentAdded = (comment: Comment) => {
     // No manual state update needed - Firebase real-time listener will handle this
     // This prevents duplicate comments and race conditions
+  };
+
+  // Handle chain quick response
+  const handleChainQuickResponse = (chainId: string) => {
+    (navigation as any).navigate('FlareResponse', { chainId });
+  };
+
+  // Handle chain skip turn
+  const handleChainSkipTurn = async (chainId: string) => {
+    if (!user) return;
+    
+    try {
+      await flareChainService.skipTurn(chainId, user.id);
+      console.log('Turn skipped successfully for chain:', chainId);
+    } catch (err) {
+      console.error('Error skipping turn:', err);
+      // TODO: Show user-friendly error message
+    }
+  };
+
+  // Unified feed item renderer
+  const renderFeedItem = ({ item }: { item: FeedItem }) => {
+    if (item.type === 'chain') {
+      const chainItem = item as ChainFeedItem;
+      return (
+        <ChainTurnCard
+          chainItem={chainItem}
+          onQuickResponse={handleChainQuickResponse}
+          onSkipTurn={handleChainSkipTurn}
+        />
+      );
+    } else {
+      const postItem = item as PostFeedItem;
+      return (
+        <FeedPost
+          post={postItem.data}
+          onLike={handleLike}
+          onComment={handleComment}
+          onExpand={handleExpand}
+          currentUserId={user?.id || null}
+        />
+      );
+    }
   };
 
   // Show auth prompt if not authenticated
@@ -326,7 +445,7 @@ export const FeedScreen = () => {
   }
 
   // Empty state
-  if (posts.length === 0) {
+  if (feedItems.length === 0) {
     return (
       <SafeAreaView style={[
         styles.container,
@@ -384,17 +503,9 @@ export const FeedScreen = () => {
         </View>
       
       <FlatList
-        data={posts}
-        renderItem={({ item }) => (
-          <FeedPost
-            post={item}
-            onLike={handleLike}
-            onComment={handleComment}
-            onExpand={handleExpand}
-            currentUserId={user?.id || null}
-          />
-        )}
-        keyExtractor={(item) => item.id}
+        data={feedItems}
+        renderItem={renderFeedItem}
+        keyExtractor={(item) => `${item.type}-${item.data.id}`}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: pillNavHeight + 16 }

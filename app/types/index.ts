@@ -320,6 +320,7 @@ export interface TurnRecord {
   expiredAt?: Date;
   photoSubmitted: boolean;
   turnDurationMinutes: number; // How long this person's turn lasted
+  skipped?: boolean; // Whether the turn was voluntarily skipped
 }
 
 export interface FlareChain {
@@ -698,3 +699,25 @@ export const MIN_CHAIN_PARTICIPANTS = 3;
 export const TIMER_WARNING_THRESHOLD = 15; // minutes
 export const TIMER_URGENT_THRESHOLD = 5; // minutes
 export const MAX_INTERPRETATION_LENGTH = 100; // characters
+
+// Feed Integration Types
+export interface FeedItem {
+  type: 'post' | 'chain';
+  data: Post | FlareChain;
+  priority: number; // Lower number = higher priority (chains first)
+  timestamp: Date;
+}
+
+export interface ChainFeedItem extends FeedItem {
+  type: 'chain';
+  data: FlareChain;
+  priority: 1;
+  timeRemaining: number; // milliseconds
+  isUserTurn: boolean;
+}
+
+export interface PostFeedItem extends FeedItem {
+  type: 'post';
+  data: Post;
+  priority: 2;
+}

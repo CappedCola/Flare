@@ -26,6 +26,9 @@ export const FlareResponseScreen = () => {
 
   // Get chainId from navigation params
   const chainId = (route.params as any)?.chainId || 'demo-chain';
+  
+  // Handle photo returned from camera
+  const photoUri = (route.params as any)?.photoUri;
 
   // Use timer hook for real-time countdown
   const {
@@ -49,6 +52,15 @@ export const FlareResponseScreen = () => {
     loadChain();
     setupRealtimeUpdates();
   }, [chainId, isAuthenticated, user]);
+
+  // Handle photo returned from camera
+  useEffect(() => {
+    if (photoUri && !capturedPhotoUri) {
+      setCapturedPhotoUri(photoUri);
+      // Clear the photoUri from params to prevent re-processing
+      navigation.setParams({ photoUri: undefined } as never);
+    }
+  }, [photoUri, capturedPhotoUri, navigation]);
 
   const loadChain = async () => {
     try {
@@ -107,22 +119,13 @@ export const FlareResponseScreen = () => {
       return;
     }
 
-    Alert.alert(
-      'Take Response Photo',
-      'This will open the camera to capture your response to the chain.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Continue', 
-          onPress: () => {
-            // TODO: Integrate with camera screen
-            // For now, simulate photo capture
-            setCapturedPhotoUri('mock-response-photo-' + Date.now());
-            Alert.alert('Photo Captured', 'Now add an interpretation and submit your response!');
-          }
-        },
-      ]
-    );
+    // Navigate to camera with chain response context
+    (navigation as any).navigate('Camera', {
+      returnScreen: 'FlareResponse',
+      returnParams: { chainId },
+      responseMode: true,
+      chainId
+    });
   };
 
   const handleSubmitResponse = async () => {

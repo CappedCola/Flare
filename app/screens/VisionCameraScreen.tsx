@@ -6,7 +6,7 @@ import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { RotateCcw, Check, Settings, X } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation as useNavigationContext } from '../context/NavigationContext';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 type LensType = 'ultra-wide' | 'standard';
@@ -14,8 +14,18 @@ type LensType = 'ultra-wide' | 'standard';
 export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
   console.log('🔵 VisionCameraScreen component initializing...');
   const theme = useTheme();
+  const route = useRoute();
   const { user, isAuthenticated } = useAuth();
   const { hideNavigation, showNavigation } = useNavigationContext();
+  
+  // Get navigation parameters for chain response mode
+  const params = route.params as any;
+  const isResponseMode = params?.responseMode || false;
+  const returnScreen = params?.returnScreen;
+  const returnParams = params?.returnParams;
+  const chainId = params?.chainId;
+  
+  console.log('📷 Camera params:', { isResponseMode, returnScreen, returnParams, chainId });
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'checking'>('checking');
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -467,11 +477,21 @@ export const VisionCameraScreen = ({ navigation }: { navigation: any }) => {
       return;
     }
 
-    // Navigate directly to FlareCreationScreen with the captured photo
-    (navigation as any).navigate('FlareCreation', {
-      photoUri: capturedPhoto,
-      photoOrientation: photoOrientation
-    });
+    if (isResponseMode && returnScreen) {
+      // Chain response mode: return to the specified screen with photo
+      console.log('🔄 Returning to', returnScreen, 'with photo for chain response');
+      (navigation as any).navigate(returnScreen, {
+        ...returnParams,
+        photoUri: capturedPhoto,
+        photoOrientation: photoOrientation
+      });
+    } else {
+      // Default mode: navigate to FlareCreationScreen
+      (navigation as any).navigate('FlareCreation', {
+        photoUri: capturedPhoto,
+        photoOrientation: photoOrientation
+      });
+    }
   };
 
 
