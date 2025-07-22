@@ -9,7 +9,7 @@
       "distribution": "internal",
       "ios": {
         "resourceClass": "default",
-        "simulator": true
+        "simulator": false
       }
     },
     "development-simulator": {

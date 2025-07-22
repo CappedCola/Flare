@@ -1,331 +1,409 @@
-# Flare App - Product Requirements Document (PRD)
-
-## Document Version: 1.0
-## Date: 2025-07-22
-## Feature: Notifications System
-
----
+# Product Requirements Document: /update-context Slash Command
 
 ## Executive Summary
 
-This PRD defines the implementation of a comprehensive notifications system for the Flare app, enabling users to manage app-wide notification preferences and receive real-time alerts for key events like new chain invitations. The feature will integrate seamlessly with the existing UI patterns and provide a foundation for future notification types.
+The `/update-context` slash command automates the maintenance of Flare's documentation by intelligently scanning the React Native codebase and updating all 5 context files with current implementation details. This ensures documentation stays synchronized with actual code, reducing development friction and maintaining code quality standards.
 
-### Goals
-1. **User Control**: Enable users to enable/disable all app notifications through a centralized settings interface
-2. **Chain Notifications**: Implement push notifications for when users receive new chain invitations
-3. **Foundation**: Create an extensible notification system that can support future notification types
-4. **User Experience**: Provide a clean, intuitive notification preferences interface consistent with Flare's design system
-
-### Success Metrics
-- User notification opt-in rate > 60%
-- Notification delivery success rate > 95%
-- User engagement with chain invitations increases by 30%
-- Settings interface usability rating > 4.5/5
+**Target Users:** Development team working on Flare app  
+**Primary Goal:** Automated documentation synchronization with zero manual intervention  
+**Success Metric:** 100% accuracy in detecting and updating changed implementations  
 
 ---
 
-## User Stories & Epics
+## 1. User Stories & Acceptance Criteria
 
-### Epic 1: Notification Settings Interface
+### Epic 1: Core Command Implementation
 
-#### User Story 1.1: Access Notification Settings
-**As a** Flare user  
-**I want to** access notification settings from the Profile Settings tab  
-**So that** I can manage my notification preferences easily
+#### User Story 1.1: Execute Update Command
+**As a** developer working on Flare  
+**I want to** run `/update-context` command  
+**So that** all context files are automatically updated with latest codebase changes
 
 **Acceptance Criteria:**
-- [ ] "Notifications" menu item is clickable in the Settings tab
-- [ ] Tapping "Notifications" navigates to a dedicated Notification Settings screen
-- [ ] Navigation transition follows existing app patterns (slide from right)
-- [ ] Back navigation returns to the Settings tab
+- ✅ Command executes successfully from project root directory
+- ✅ Scans entire `/app/` directory tree recursively  
+- ✅ Identifies all TypeScript/JavaScript files (.ts, .tsx, .js, .jsx)
+- ✅ Processes Firebase configuration files (firebase.json, firestore.rules)
+- ✅ Updates all 5 context files in single execution
+- ✅ Provides detailed summary of changes made
+- ✅ Completes execution within 30 seconds for current codebase size
 
-#### User Story 1.2: Toggle All Notifications
-**As a** Flare user  
-**I want to** enable or disable all app notifications with a single toggle  
-**So that** I can quickly control whether I receive any notifications from Flare
-
-**Acceptance Criteria:**
-- [ ] Master toggle switch labeled "Enable Notifications" at the top of the settings screen
-- [ ] Toggle state persists across app sessions
-- [ ] Toggle state is stored in user preferences (Firestore)
-- [ ] Disabling master toggle grays out all sub-notification options
-- [ ] Toggle includes descriptive text: "Receive notifications about your Flare activity"
-
-#### User Story 1.3: Chain Invitation Notifications
-**As a** Flare user  
-**I want to** receive notifications when someone invites me to a chain  
-**So that** I can respond to chain invitations promptly
+#### User Story 1.2: Change Detection & Analysis
+**As a** developer  
+**I want to** see what has changed since last documentation update  
+**So that** I can review and validate the automated changes
 
 **Acceptance Criteria:**
-- [ ] Sub-toggle for "Chain Invitations" under the master toggle
-- [ ] When enabled, user receives push notifications for new chain invitations
-- [ ] Notification includes: sender's username, chain prompt preview
-- [ ] Tapping notification opens the specific chain view
-- [ ] Notification arrives within 5 seconds of invitation being sent
+- ✅ Compares current code against existing documentation  
+- ✅ Identifies new components, services, hooks, and screens
+- ✅ Detects modified function signatures and interfaces
+- ✅ Finds removed or deprecated code patterns
+- ✅ Reports unchanged sections to avoid unnecessary updates
+- ✅ Provides file-by-file change summary
 
-### Epic 2: Notification Infrastructure
+### Epic 2: Intelligent Code Analysis
 
-#### User Story 2.1: Permission Handling
-**As a** Flare app  
-**I want to** properly request and manage notification permissions  
-**So that** users have a smooth onboarding experience
-
-**Acceptance Criteria:**
-- [ ] App requests notification permissions when user first enables notifications
-- [ ] Handle permission denied gracefully with informative message
-- [ ] Provide link to system settings if permissions need to be changed
-- [ ] Track permission status in app state
-
-#### User Story 2.2: Notification Delivery
-**As a** Flare app  
-**I want to** reliably deliver notifications to users  
-**So that** they stay engaged with the app
+#### User Story 2.1: Architecture Pattern Extraction  
+**As a** system  
+**I need to** analyze code patterns and extract architectural information  
+**So that** architecture-detailed.md stays current with implementation
 
 **Acceptance Criteria:**
-- [ ] Notifications work on both iOS and Android
-- [ ] Notifications display app icon and brand colors
-- [ ] Sound/vibration follows system defaults
-- [ ] Notifications group appropriately (iOS/Android specific)
-- [ ] Background/foreground notification handling implemented
+- ✅ Extracts TypeScript interfaces and type definitions from `/types/`
+- ✅ Analyzes service layer patterns from `/services/`
+- ✅ Maps navigation structure from `/navigation/`
+- ✅ Identifies context providers from `/context/`
+- ✅ Documents hook implementations from `/hooks/`
+- ✅ Captures component architecture from `/components/` and `/screens/`
+
+#### User Story 2.2: Feature Implementation Detection
+**As a** system  
+**I need to** understand current feature implementations  
+**So that** features-detailed.md reflects actual functionality
+
+**Acceptance Criteria:**
+- ✅ Maps Firebase service functions with signatures
+- ✅ Identifies authentication flows and patterns
+- ✅ Documents real-time subscription implementations
+- ✅ Extracts error handling patterns
+- ✅ Analyzes navigation flows between screens
+- ✅ Captures state management patterns
+
+### Epic 3: Documentation Structure Preservation
+
+#### User Story 3.1: Maintain Documentation Format
+**As a** developer reading documentation  
+**I want to** have consistent formatting and structure  
+**So that** I can quickly find the information I need
+
+**Acceptance Criteria:**
+- ✅ Preserves existing markdown structure and headings
+- ✅ Maintains manual content and explanatory text
+- ✅ Updates only code examples and implementation details
+- ✅ Keeps cross-references and internal links intact
+- ✅ Preserves table of contents and navigation
+- ✅ Maintains consistent code formatting and syntax highlighting
+
+#### User Story 3.2: Selective Content Updates
+**As a** system  
+**I need to** update only outdated information  
+**So that** manual documentation improvements are preserved
+
+**Acceptance Criteria:**
+- ✅ Identifies code blocks that need updating
+- ✅ Preserves manually written explanations and context
+- ✅ Updates function signatures while keeping descriptions
+- ✅ Replaces outdated import statements
+- ✅ Maintains documentation style and voice
+- ✅ Avoids overwriting recent manual edits
 
 ---
 
-## Detailed Feature Specifications
+## 2. Technical Requirements
 
-### 1. Notification Settings Screen
+### 2.1 Core Script Architecture
 
-#### Layout & Design
-- **Screen Title**: "Notifications"
-- **Navigation**: Standard header with back button
-- **Background**: Consistent with app theme (#FDF6EC)
-- **Components**: 
-  - Master toggle switch (UI Kitten Toggle component)
-  - Section headers for notification categories
-  - Individual toggle switches for specific notification types
-  - Descriptive text for each option
-
-#### UI Components Structure
-```
-NotificationSettingsScreen
-├── Header (with back navigation)
-├── ScrollView
-│   ├── Master Toggle Section
-│   │   ├── Toggle: "Enable Notifications"
-│   │   └── Description text
-│   ├── Divider
-│   └── Chain Notifications Section
-│       ├── Section Header: "Flare Chains"
-│       ├── Toggle: "New Chain Invitations"
-│       └── Description: "Get notified when friends invite you to chains"
-```
-
-### 2. Notification Types
-
-#### Chain Invitation Notification
-- **Trigger**: When a user is added to a chain by another user
-- **Content**:
-  - Title: "New Chain Invitation 🔥"
-  - Body: "@{username} invited you to: {prompt_preview}"
-  - Data payload: `{ type: 'chain_invitation', chainId: string, inviterId: string }`
-- **Action**: Opens FlareChainView screen with the specific chain
-
-### 3. Data Model
-
-#### User Preferences Schema
-```typescript
-interface UserNotificationPreferences {
-  userId: string;
-  notificationsEnabled: boolean;
-  pushToken?: string;
-  chainInvitations: boolean;
-  // Future notification types
-  dailyReminders?: boolean;
-  friendRequests?: boolean;
-  likes?: boolean;
-  comments?: boolean;
-  lastUpdated: Date;
-}
-```
-
-#### Firestore Structure
-```
-users/{userId}/preferences/notifications
-{
-  notificationsEnabled: true,
-  pushToken: "ExponentPushToken[...]",
-  chainInvitations: true,
-  lastUpdated: Timestamp
-}
+**Main Script:** `/scripts/update-context.js`
+```javascript
+// High-level structure requirement
+const updateContext = async () => {
+  const codebaseAnalysis = await analyzeCodebase();
+  const currentDocs = await readContextFiles();
+  const changes = await detectChanges(codebaseAnalysis, currentDocs);
+  const updatedDocs = await generateUpdates(changes);
+  await writeUpdatedContextFiles(updatedDocs);
+  return generateSummaryReport(changes);
+};
 ```
 
----
+### 2.2 File Analysis Requirements
 
-## Technical Requirements
+**Supported File Types:**
+- TypeScript: `.ts`, `.tsx` files
+- JavaScript: `.js`, `.jsx` files  
+- JSON Configuration: `firebase.json`, `package.json`
+- Firebase Rules: `firestore.rules`, `storage.rules`
 
-### Platform Specifications
+**Analysis Capabilities:**
+- AST parsing for function signatures and interfaces
+- Import/export dependency mapping
+- Component prop extraction
+- Service method identification
+- Firebase integration pattern detection
 
-#### Dependencies
-- **expo-notifications**: For cross-platform push notification support
-- **expo-device**: For device information (required for notifications)
-- **expo-constants**: For app configuration
-- Existing Firebase infrastructure for data storage
+### 2.3 Context File Specifications
 
-#### Firebase Integration
-- Store notification preferences in Firestore under user document
-- Use Firebase Cloud Functions for sending notifications (future enhancement)
-- Real-time subscription to preference changes
+**Target Files for Updates:**
+1. `context/architecture-detailed.md` - Type definitions, service patterns, navigation structure
+2. `context/features-detailed.md` - Implementation examples, database operations, real-time patterns
+3. `context/ui-patterns-detailed.md` - Component examples, styling patterns, responsive design
+4. `context/firebase-database-detailed.md` - Database schemas, security rules, queries
+5. `context/debugging-detailed.md` - Error patterns, logging, troubleshooting guides
 
-#### Permission Requirements
-- iOS: `NSUserNotificationsUsageDescription` in Info.plist
-- Android: Notification channels configuration
-- Runtime permission requests on both platforms
+### 2.4 Performance Requirements
 
-### Implementation Architecture
+- **Execution Time:** Complete analysis and updates within 30 seconds
+- **Memory Usage:** Stay under 512MB RAM during processing
+- **File Size:** Handle projects up to 10,000 files efficiently
+- **Concurrent Processing:** Analyze multiple files simultaneously where safe
 
-#### Services
-1. **NotificationService** (`app/services/notificationService.ts`)
-   - Register for push notifications
-   - Get/set notification permissions
-   - Handle notification events
-   - Update push tokens
+### 2.5 Integration Requirements
 
-2. **NotificationPreferencesService** (`app/services/notificationPreferencesService.ts`)
-   - Save/retrieve user notification preferences
-   - Real-time preference synchronization
-   - Handle preference updates
-
-#### Hooks
-1. **useNotificationPermissions** (`app/hooks/useNotificationPermissions.ts`)
-   - Check current permission status
-   - Request permissions
-   - Handle permission changes
-
-2. **useNotificationPreferences** (`app/hooks/useNotificationPreferences.ts`)
-   - Load user preferences
-   - Update preferences
-   - Sync with Firestore
-
-#### Context Updates
-- Extend existing `NotificationContext` to handle push notifications
-- Add notification permission state
-- Handle foreground/background notification events
+**Slash Command Integration:**
+- Must work as slash command in Claude Code environment
+- Provide real-time progress feedback during execution
+- Handle command-line arguments and options
+- Support dry-run mode for preview without changes
 
 ---
 
-## Success Metrics & Analytics
+## 3. Detailed Feature Specifications
 
-### Key Performance Indicators (KPIs)
-1. **Adoption Rate**: % of users who enable notifications
-2. **Engagement Rate**: % of notifications that result in app opens
-3. **Response Time**: Average time from notification to chain response
-4. **Opt-out Rate**: % of users who disable notifications after enabling
+### 3.1 Codebase Scanner Module
 
-### Analytics Events
-- `notification_permission_requested`
-- `notification_permission_granted`
-- `notification_permission_denied`
-- `notification_settings_opened`
-- `notification_preference_changed`
-- `notification_received`
-- `notification_tapped`
+**Purpose:** Recursively scan `/app/` directory and extract structured code information
 
----
+**Implementation Requirements:**
+```javascript
+// Scanner interface specification
+const scanCodebase = async () => {
+  return {
+    types: extractTypeDefinitions(),
+    services: extractServiceMethods(), 
+    components: extractComponentProps(),
+    hooks: extractHookSignatures(),
+    navigation: extractRouteDefinitions(),
+    firebase: extractFirebasePatterns()
+  };
+};
+```
 
-## Dependencies & Integration Points
+**Key Extraction Patterns:**
+- TypeScript interface definitions with JSDoc comments
+- React component prop interfaces and default props
+- Custom hook return types and parameters
+- Service function signatures with error handling
+- Firebase collection schemas and queries
+- Navigation parameter type definitions
 
-### Existing Systems
-1. **Authentication System**: User must be authenticated to access settings
-2. **Navigation System**: Integration with existing navigation stack
-3. **Firestore**: Store user preferences
-4. **UI Theme**: Use existing UI Kitten components and theme
+### 3.2 Change Detection Engine
 
-### New Integrations
-1. **Push Notification Service**: Expo Push Notification service
-2. **Device Permissions**: Native permission APIs
-3. **Background Tasks**: Handle notifications when app is closed
+**Purpose:** Identify differences between current code and documented examples
 
----
+**Detection Logic:**
+- Function signature changes (parameters, return types)
+- New or removed components and services  
+- Modified Firebase rules and configurations
+- Updated import paths and dependencies
+- Changed prop interfaces and type definitions
 
-## Timeline & Prioritization
+**Comparison Algorithm:**
+```javascript
+const detectChanges = (current, documented) => {
+  return {
+    added: findNewImplementations(current, documented),
+    modified: findChangedSignatures(current, documented), 
+    removed: findDeprecatedCode(current, documented),
+    unchanged: findStableCode(current, documented)
+  };
+};
+```
 
-### Phase 1: Foundation (Current Sprint)
-1. Create NotificationSettingsScreen with navigation
-2. Implement basic toggle UI without functionality
-3. Set up notification service architecture
-4. Add Expo notification dependencies
+### 3.3 Structure-Preserving Updater
 
-### Phase 2: Core Implementation
-1. Implement notification permission handling
-2. Create preference storage in Firestore
-3. Implement chain invitation notifications
-4. Test on both platforms
+**Purpose:** Update documentation while maintaining structure and manual content
 
-### Phase 3: Polish & Extend
-1. Add loading states and error handling
-2. Implement notification analytics
-3. Add more notification types (friend requests, likes, etc.)
-4. A/B test notification content
+**Update Strategy:**
+- Parse markdown into structured sections
+- Identify code blocks that need replacement
+- Update only implementation details, preserve explanations
+- Maintain heading hierarchy and cross-references
+- Preserve manually written context and examples
 
----
-
-## Risk Mitigation
-
-### Technical Risks
-1. **Platform Differences**: iOS and Android handle notifications differently
-   - Mitigation: Use Expo's unified API, test extensively on both platforms
-
-2. **Permission Denial**: Users may deny notification permissions
-   - Mitigation: Graceful degradation, in-app prompts explaining benefits
-
-3. **Notification Delivery**: Push notifications may fail
-   - Mitigation: Implement retry logic, fallback to in-app notifications
-
-### UX Risks
-1. **Notification Fatigue**: Too many notifications may annoy users
-   - Mitigation: Start with minimal notification types, gather feedback
-
-2. **Confusing Settings**: Users may not understand notification options
-   - Mitigation: Clear descriptions, intuitive UI, user testing
+**Content Replacement Rules:**
+```javascript
+const updateRules = {
+  codeBlocks: 'REPLACE_IF_DIFFERENT',
+  explanations: 'PRESERVE_MANUAL_CONTENT', 
+  headings: 'PRESERVE_STRUCTURE',
+  crossRefs: 'UPDATE_LINKS_IF_MOVED'
+};
+```
 
 ---
 
-## Future Enhancements
+## 4. Implementation Architecture
 
-### Additional Notification Types
-- Daily streak reminders
-- Friend request notifications
-- Like/comment notifications on posts
-- Chain completion celebrations
-- Weekly activity summaries
+### 4.1 File Structure
 
-### Advanced Features
-- Notification scheduling (quiet hours)
-- Custom notification sounds
-- Rich notifications with images
-- In-app notification center
-- Notification badges on tab bar
+```
+scripts/
+├── update-context.js           # Main command entry point
+├── analyzers/
+│   ├── typescript-analyzer.js  # TypeScript AST parsing
+│   ├── component-analyzer.js   # React component extraction
+│   ├── service-analyzer.js     # Service layer analysis
+│   ├── hook-analyzer.js        # Custom hook analysis
+│   └── firebase-analyzer.js    # Firebase pattern detection
+├── updaters/
+│   ├── architecture-updater.js # Updates architecture-detailed.md
+│   ├── features-updater.js     # Updates features-detailed.md  
+│   ├── ui-updater.js          # Updates ui-patterns-detailed.md
+│   ├── firebase-updater.js    # Updates firebase-database-detailed.md
+│   └── debug-updater.js       # Updates debugging-detailed.md
+└── utils/
+    ├── markdown-parser.js      # Markdown structure parsing
+    ├── ast-utils.js           # AST manipulation utilities
+    └── file-utils.js          # File system operations
+```
 
-### Backend Enhancements
-- Firebase Cloud Functions for server-side notifications
-- Notification templates and personalization
-- A/B testing infrastructure for notification content
-- Advanced analytics and reporting
+### 4.2 Analysis Pipeline
+
+**Phase 1: Discovery**
+1. Scan `/app/` directory recursively
+2. Identify all relevant source files  
+3. Build dependency graph
+4. Extract Firebase configurations
+
+**Phase 2: Analysis**  
+1. Parse TypeScript files into ASTs
+2. Extract interfaces, types, and function signatures
+3. Analyze React components for props and patterns
+4. Map service layer implementations
+5. Document hook signatures and return types
+
+**Phase 3: Comparison**
+1. Load existing context files
+2. Parse documented code examples  
+3. Compare with current implementations
+4. Identify additions, modifications, deletions
+
+**Phase 4: Update Generation**
+1. Generate updated content for each context file
+2. Preserve manual content and explanations
+3. Update code examples and signatures
+4. Maintain markdown structure and formatting
+
+**Phase 5: Output**
+1. Write updated context files
+2. Generate change summary report
+3. Provide validation feedback
+
+### 4.3 Error Handling Strategy
+
+**Parsing Errors:**
+- Log syntax errors but continue processing
+- Skip malformed files with warning
+- Provide detailed error context for debugging
+
+**File System Errors:**
+- Handle permission issues gracefully
+- Backup existing files before updates
+- Rollback changes if critical errors occur
+
+**Analysis Errors:**
+- Report unrecognized patterns
+- Continue with available information
+- Suggest manual review for complex cases
 
 ---
 
-## Appendix
+## 5. Success Metrics & Validation
 
-### Mockup References
-- Notification Settings Screen wireframe
-- Push notification examples
-- Permission request flows
+### 5.1 Accuracy Metrics
 
-### Technical Documentation
-- Expo Notifications API documentation
-- Firebase Cloud Messaging integration guide
-- Platform-specific notification guidelines
+- **Pattern Recognition Rate:** >95% of code patterns correctly identified
+- **Change Detection Accuracy:** >98% of actual changes captured  
+- **False Positive Rate:** <2% of unchanged content flagged as modified
+- **Structure Preservation:** 100% of manual content preserved correctly
 
-### User Research
-- Notification preference survey results
-- Competitor analysis of notification systems
-- User feedback on notification needs
+### 5.2 Performance Metrics
+
+- **Execution Time:** Complete analysis within 30 seconds
+- **Memory Efficiency:** Peak memory usage under 512MB
+- **File Processing Rate:** >100 files per second analysis speed
+- **Incremental Processing:** Skip unchanged files for speed
+
+### 5.3 Quality Metrics
+
+- **Documentation Accuracy:** Generated examples must compile and run
+- **Cross-Reference Integrity:** All internal links remain valid
+- **Format Consistency:** Maintained markdown style and structure
+- **Content Completeness:** No missing implementations in documentation
+
+---
+
+## 6. Risk Assessment & Mitigation
+
+### 6.1 Technical Risks
+
+**Risk: Complex TypeScript Pattern Recognition**  
+*Likelihood:* Medium | *Impact:* High  
+*Mitigation:* Implement fallback patterns, extensive testing on current codebase
+
+**Risk: Documentation Structure Corruption**  
+*Likelihood:* Low | *Impact:* High  
+*Mitigation:* Backup existing files, atomic updates, rollback capability
+
+**Risk: Performance Degradation on Large Codebases**  
+*Likelihood:* Medium | *Impact:* Medium  
+*Mitigation:* Implement file filtering, parallel processing, incremental updates
+
+### 6.2 User Experience Risks
+
+**Risk: Breaking Manual Documentation Updates**  
+*Likelihood:* Medium | *Impact:* Medium  
+*Mitigation:* Preserve manual content, clear update indicators, review mode
+
+**Risk: Inconsistent Output Quality**  
+*Likelihood:* Low | *Impact:* Medium  
+*Mitigation:* Comprehensive test suite, validation checks, quality metrics
+
+---
+
+## 7. Timeline & Dependencies
+
+### Phase 1: Foundation (Week 1)
+- Core script structure and file scanning
+- Basic TypeScript AST parsing
+- Markdown structure preservation
+
+### Phase 2: Analysis (Week 2)  
+- Component and service analysis
+- Firebase pattern detection
+- Change detection algorithms
+
+### Phase 3: Updates (Week 3)
+- Context file updaters implementation
+- Structure-preserving content replacement
+- Cross-reference maintenance
+
+### Phase 4: Integration (Week 4)
+- Slash command integration
+- Error handling and validation
+- Performance optimization and testing
+
+**Dependencies:**
+- Node.js TypeScript compiler API
+- Markdown parsing library (marked or similar)
+- File system utilities and AST parsers
+- Access to current Flare codebase for testing
+
+---
+
+## 8. Future Enhancements
+
+### 8.1 Advanced Features
+- **Incremental Updates:** Track file modification times for faster processing
+- **Custom Pattern Recognition:** Learn project-specific patterns over time  
+- **Multi-Project Support:** Handle multiple codebases with shared patterns
+- **AI-Enhanced Documentation:** Generate explanations for complex patterns
+
+### 8.2 Integration Opportunities
+- **CI/CD Integration:** Automatically update docs on code changes
+- **IDE Integration:** Real-time documentation updates during development
+- **Version Control Integration:** Track documentation changes with commits
+
+---
+
+This PRD provides comprehensive requirements for implementing the `/update-context` slash command, ensuring it meets all technical and user experience needs while maintaining the high quality of Flare's documentation system.
