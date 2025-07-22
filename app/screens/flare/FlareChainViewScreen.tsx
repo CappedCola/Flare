@@ -60,9 +60,32 @@ export const FlareChainViewScreen = () => {
     loadChain();
   }, [chainId]);
 
-  const handleOpenChat = () => {
-    if (chainId) {
+  const handleOpenChat = async () => {
+    if (!chainId) return;
+    
+    try {
+      // Check if chat is available for this chain
+      const { chatService } = await import('../../services/chatService');
+      const chatRoom = await chatService.getChatRoomByChainId(chainId);
+      
+      if (!chatRoom) {
+        Alert.alert(
+          'Chat Not Available',
+          'This chain does not have a chat room yet. Chat will be available once the chain is fully set up.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      // Navigate to chat
       navigation.navigate('FlareChat' as never, { chainId } as never);
+    } catch (error) {
+      console.error('Error checking chat availability:', error);
+      Alert.alert(
+        'Chat Error',
+        'Unable to access chat at this time. Please try again later.',
+        [{ text: 'OK' }]
+      );
     }
   };
 

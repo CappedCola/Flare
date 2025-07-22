@@ -9,7 +9,7 @@ import {
   doc,
   getDoc
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { firestore } from '../config/firebase';
 import { 
   DiscoveryData, 
   TrendingPrompt, 

@@ -97,8 +97,13 @@ export const ProfileScreen = () => {
   const handleMenuPress = (item: string) => {
     console.log(`Pressed ${item}`);
     
-    if (item === 'FlareChains') {
-      navigation.navigate('FlareHome' as never);
+    switch (item) {
+      case 'Notifications':
+        navigation.navigate('NotificationSettings' as never);
+        break;
+      default:
+        console.log(`No handler for ${item} yet`);
+        break;
     }
   };
 
@@ -241,12 +246,6 @@ export const ProfileScreen = () => {
           icon={Settings}
           title="Account Settings"
           onPress={() => handleMenuPress('Account')}
-          theme={theme}
-        />
-        <MenuItem 
-          icon={Flame}
-          title="Flare Chains"
-          onPress={() => handleMenuPress('FlareChains')}
           theme={theme}
         />
         <MenuItem 

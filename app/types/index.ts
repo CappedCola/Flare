@@ -111,12 +111,56 @@ export interface MutualFriend {
 export interface Notification {
   id: string;
   userId: string;
-  type: 'like' | 'comment' | 'friend_request' | 'streak_reminder';
+  type: 'like' | 'comment' | 'friend_request' | 'streak_reminder' | 'chain_invitation' | 'chain_turn' | 'chain_completed';
   title: string;
   message: string;
   data?: any;
   read: boolean;
   createdAt: Date;
+}
+
+// Push Notification Types
+export interface PushNotificationData {
+  title: string;
+  body: string;
+  data?: {
+    type: NotificationTypeEnum;
+    chainId?: string;
+    userId?: string;
+    postId?: string;
+    [key: string]: any;
+  };
+}
+
+export interface NotificationPreferences {
+  id: string;
+  userId: string;
+  allNotificationsEnabled: boolean;
+  chainInvitations: boolean;
+  chainTurns: boolean;
+  chainCompleted: boolean;
+  likes: boolean;
+  comments: boolean;
+  friendRequests: boolean;
+  pushToken?: string; // Expo push token
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export enum NotificationTypeEnum {
+  CHAIN_INVITATION = 'chain_invitation',
+  CHAIN_TURN = 'chain_turn', 
+  CHAIN_COMPLETED = 'chain_completed',
+  LIKE = 'like',
+  COMMENT = 'comment',
+  FRIEND_REQUEST = 'friend_request',
+  STREAK_REMINDER = 'streak_reminder'
+}
+
+export interface PushNotificationPermission {
+  status: 'undetermined' | 'denied' | 'granted';
+  canAskAgain: boolean;
+  granted: boolean;
 }
 
 export interface PhotoMetadata {
@@ -252,6 +296,7 @@ export type RootStackParamList = {
   FlareHome: undefined;
   FlareDiscovery: undefined;
   FlareLeaderboard: undefined;
+  NotificationSettings: undefined;
 };
 
 export type AuthStackParamList = {

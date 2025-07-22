@@ -5,19 +5,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Send, MessageCircle, Users, ArrowLeft } from 'lucide-react-native';
 import { useChat } from '../../hooks/useChat';
-import { ChatMessage } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { ChatMessage, FlareChain } from '../../types';
+import { flareChainService } from '../../services/flareChainService';
 
 export const FlareChatScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const scrollViewRef = useRef<ScrollView>(null);
+  const { user } = useAuth();
   
   const [messageInput, setMessageInput] = useState('');
+  const [chain, setChain] = useState<FlareChain | null>(null);
+  const [loadingChain, setLoadingChain] = useState(true);
   
   // Get chainId from navigation params
   const chainId = (route.params as any)?.chainId || 'demo-chain';
-  const currentUserId = 'current-user-id'; // TODO: Get from auth context
-  const currentUsername = 'Current User'; // TODO: Get from auth context
+  const currentUserId = user?.id || 'current-user-id';
+  const currentUsername = user?.username || 'Current User';
 
   const {
     messages,
@@ -29,6 +34,27 @@ export const FlareChatScreen = () => {
     unreadCount,
     markAsRead,
   } = useChat(chainId, currentUserId, currentUsername);
+
+  // Load chain data to get prompt information
+  useEffect(() => {
+    const loadChain = async () => {
+      try {
+        setLoadingChain(true);
+        const chainData = await flareChainService.getChainById(chainId);
+        setChain(chainData);
+      } catch (error) {
+        console.error('Error loading chain:', error);
+      } finally {
+        setLoadingChain(false);
+      }
+    };
+
+    if (chainId && chainId !== 'demo-chain') {
+      loadChain();
+    } else {
+      setLoadingChain(false);
+    }
+  }, [chainId]);
 
   useEffect(() => {
     // Mark messages as read when screen is opened
@@ -188,10 +214,28 @@ export const FlareChatScreen = () => {
             accessoryLeft={(props) => <ArrowLeft {...props} size={20} />}
           />
           <Layout style={styles.headerContent}>
-            <Users size={20} color="#FF4D4D" />
-            <Text category="h6" style={styles.headerTitle}>
-              Chain Chat
-            </Text>
+            {chain?.prompt ? (
+              <Layout style={styles.promptHeaderInfo}>
+                {chain.prompt.emoji && (
+                  <Text style={styles.headerEmoji}>{chain.prompt.emoji}</Text>
+                )}
+                <Layout style={styles.headerTextContainer}>
+                  <Text category="h6" style={styles.headerTitle} numberOfLines={1}>
+                    {chain.prompt.title}
+                  </Text>
+                  <Text category="c2" appearance="hint" style={styles.headerSubtitle} numberOfLines={1}>
+                    Chain Chat
+                  </Text>
+                </Layout>
+              </Layout>
+            ) : (
+              <Layout style={styles.defaultHeaderInfo}>
+                <Users size={20} color="#FF4D4D" />
+                <Text category="h6" style={styles.headerTitle}>
+                  Chain Chat
+                </Text>
+              </Layout>
+            )}
           </Layout>
           <Layout style={styles.headerSpacer} />
         </Layout>
@@ -204,13 +248,32 @@ export const FlareChatScreen = () => {
         >
           {messages.length === 0 ? (
             <Layout style={styles.emptyContainer}>
-              <MessageCircle size={48} color="#E8E8E8" />
-              <Text category="h6" appearance="hint" style={styles.emptyTitle}>
-                Start the conversation!
-              </Text>
-              <Text category="s1" appearance="hint" style={styles.emptySubtext}>
-                Send the first message to get the chat going.
-              </Text>
+              {chain?.prompt ? (
+                <Layout style={styles.promptWelcome}>
+                  {chain.prompt.emoji && (
+                    <Text style={styles.welcomeEmoji}>{chain.prompt.emoji}</Text>
+                  )}
+                  <Text category="h6" style={styles.welcomeTitle}>
+                    {chain.prompt.title}
+                  </Text>
+                  <Text category="s1" appearance="hint" style={styles.welcomeDescription}>
+                    "{chain.prompt.description}"
+                  </Text>
+                  <Text category="c1" appearance="hint" style={styles.welcomeSubtext}>
+                    Share your thoughts about this prompt with your chain!
+                  </Text>
+                </Layout>
+              ) : (
+                <Layout style={styles.defaultEmpty}>
+                  <MessageCircle size={48} color="#E8E8E8" />
+                  <Text category="h6" appearance="hint" style={styles.emptyTitle}>
+                    Start the conversation!
+                  </Text>
+                  <Text category="s1" appearance="hint" style={styles.emptySubtext}>
+                    Send the first message to get the chat going.
+                  </Text>
+                </Layout>
+              )}
             </Layout>
           ) : (
             <Layout style={styles.messagesList}>
@@ -291,8 +354,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  promptHeaderInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  defaultHeaderInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerEmoji: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  headerTextContainer: {
+    alignItems: 'center',
+    maxWidth: 200,
+  },
   headerTitle: {
     marginLeft: 8,
+    textAlign: 'center',
+  },
+  headerSubtitle: {
+    fontSize: 11,
+    textAlign: 'center',
   },
   headerSpacer: {
     width: 40, // Balance the back button
@@ -306,6 +393,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
+  },
+  promptWelcome: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  defaultEmpty: {
+    alignItems: 'center',
+  },
+  welcomeEmoji: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  welcomeTitle: {
+    marginBottom: 12,
+    textAlign: 'center',
+    color: '#2C2C2C',
+    fontWeight: '600',
+  },
+  welcomeDescription: {
+    textAlign: 'center',
+    marginBottom: 16,
+    fontStyle: 'italic',
+    lineHeight: 22,
+  },
+  welcomeSubtext: {
+    textAlign: 'center',
+    fontSize: 13,
   },
   emptyTitle: {
     marginTop: 16,
@@ -339,18 +453,30 @@ const styles = StyleSheet.create({
     minWidth: '20%',
   },
   ownMessageCard: {
-    backgroundColor: '#FF4D4D',
+    backgroundColor: '#FF6B47',
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderRadius: 16,
   },
   otherMessageCard: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FF9068',
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderRadius: 16,
   },
   messageContent: {
-    padding: 8,
+    padding: 12,
   },
   senderName: {
     marginBottom: 4,
     fontWeight: 'bold',
-    color: '#666666',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   messageText: {
     marginBottom: 4,
@@ -359,7 +485,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   otherMessageText: {
-    color: '#2C2C2C',
+    color: '#FFFFFF',
   },
   messageTime: {
     fontSize: 10,
@@ -369,7 +495,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   otherMessageTime: {
-    color: '#999999',
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   inputContainer: {
     flexDirection: 'row',

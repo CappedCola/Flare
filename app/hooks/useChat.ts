@@ -44,32 +44,82 @@ export const useChat = (
       setLoading(true);
       setError(null);
 
-      // Get or create chat room for this chain
-      let room = await chatService.getChatRoomByChainId(chainId);
-      
-      if (!room) {
-        // Chat room doesn't exist yet, it will be created when the chain is created
+      // Validate required parameters
+      if (!chainId) {
+        setError('Chain ID is required');
         setLoading(false);
         return;
       }
 
+      if (!currentUserId) {
+        setError('User authentication required');
+        setLoading(false);
+        return;
+      }
+
+      console.log(`🔍 Loading chat room for chain ${chainId}...`);
+
+      // Get or create chat room for this chain (with fallback creation for legacy chains)
+      let room = await chatService.getChatRoomByChainId(chainId);
+      
+      if (!room) {
+        console.log(`❌ No chat room found for chain ${chainId}`);
+        setError('Chat room not available. This chain may not support chat yet.');
+        setLoading(false);
+        return;
+      }
+
+      console.log(`✅ Chat room loaded: ${room.id}`);
       setChatRoom(room);
 
-      // Subscribe to messages
-      const unsubscribe = chatService.subscribeToMessages(room.id, (newMessages) => {
-        setMessages(newMessages);
+      // Verify user is a participant in the chat room
+      if (!room.participantIds.includes(currentUserId)) {
+        console.error(`❌ User ${currentUserId} is not a participant in chat room ${room.id}`);
+        setError('You do not have access to this chat room.');
         setLoading(false);
-      });
+        return;
+      }
+
+      // Subscribe to messages with enhanced error handling
+      const unsubscribe = chatService.subscribeToMessages(
+        room.id, 
+        (newMessages) => {
+          console.log(`📨 Received ${newMessages.length} messages for chat room ${room.id}`);
+          setMessages(newMessages);
+          setLoading(false);
+        }
+      );
 
       unsubscribeRef.current = unsubscribe;
 
-      // Get unread count
-      const count = await chatService.getUnreadMessageCount(room.id, currentUserId);
-      setUnreadCount(count);
+      // Get unread count with error handling
+      try {
+        const count = await chatService.getUnreadMessageCount(room.id, currentUserId);
+        setUnreadCount(count);
+      } catch (unreadError) {
+        console.warn('Failed to get unread count (non-critical):', unreadError);
+        // Non-critical error, don't fail the entire chat loading
+      }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading chat room:', err);
-      setError('Failed to load chat');
+      
+      // Enhanced error messaging based on error type
+      let errorMessage = 'Failed to load chat';
+      
+      if (err.code === 'firestore/permission-denied') {
+        errorMessage = 'Permission denied. You may not have access to this chat.';
+        console.error('🚨 PERMISSION DENIED in useChat hook:');
+        console.error('- chainId:', chainId);
+        console.error('- currentUserId:', currentUserId);
+        console.error('- Error details:', err);
+      } else if (err.message && err.message.includes('network')) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setLoading(false);
     }
   };

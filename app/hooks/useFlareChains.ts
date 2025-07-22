@@ -81,6 +81,34 @@ export const useFlareChains = (userId?: string): UseFlareChainReturn => {
     try {
       setError(null);
       
+      // PHASE 1: Pre-submission validation - fetch fresh chain data
+      console.log('🔍 Validating turn status before submission...');
+      const freshChain = await flareChainService.getChainById(chainId);
+      
+      if (!freshChain) {
+        throw new Error('Chain not found');
+      }
+
+      // Check if it's still the user's turn
+      const currentParticipant = freshChain.participants.find(p => 
+        p.status === 'CURRENT_TURN'
+      );
+      
+      if (!currentParticipant || currentParticipant.userId !== userId) {
+        throw new Error('It is no longer your turn to respond');
+      }
+
+      // Check if turn has expired (with 30-second grace period buffer)
+      const now = new Date();
+      const expirationBuffer = 30 * 1000; // 30 seconds in milliseconds
+      const turnExpiresAt = new Date(freshChain.currentTurnExpiresAt);
+      
+      if (now.getTime() + expirationBuffer >= turnExpiresAt.getTime()) {
+        throw new Error('Your turn has expired or is about to expire');
+      }
+
+      console.log('✅ Turn validation passed, submitting response...');
+      
       await flareChainService.respondToChain(chainId, userId, photoUri, interpretation);
       
       // Refresh chains to get updated data

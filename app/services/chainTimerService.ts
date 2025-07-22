@@ -35,64 +35,111 @@ export class ChainTimerService {
   }
 
   // Update timer state
-  private updateTimer(chainId: string, participantId: string): void {
+  private async updateTimer(chainId: string, participantId: string): Promise<void> {
     const now = new Date();
     const callback = this.callbacks.get(`${chainId}-${participantId}`);
     
     if (!callback) return;
 
-    // Calculate time remaining
-    const timer = this.calculateTimeRemaining(chainId, participantId);
-    
-    if (timer.timeRemaining <= 0) {
-      // Timer expired
-      timer.status = ChainTimerStatus.EXPIRED;
-      timer.timeRemaining = 0;
-      this.handleTimerExpiration(chainId, participantId);
-    } else if (timer.timeRemaining <= 5 * 60 * 1000 && timer.warningsSent < 2) {
-      // 5 minutes or less - urgent
-      timer.status = ChainTimerStatus.URGENT;
-      this.sendTimerWarning(chainId, participantId, 'urgent');
-      timer.warningsSent = 2;
-    } else if (timer.timeRemaining <= 15 * 60 * 1000 && timer.warningsSent < 1) {
-      // 15 minutes or less - warning
-      timer.status = ChainTimerStatus.WARNING;
-      this.sendTimerWarning(chainId, participantId, 'warning');
-      timer.warningsSent = 1;
-    }
+    try {
+      // Calculate time remaining using real chain data
+      const timer = await this.calculateTimeRemaining(chainId, participantId);
+      
+      if (timer.timeRemaining <= 0) {
+        // Timer expired
+        timer.status = ChainTimerStatus.EXPIRED;
+        timer.timeRemaining = 0;
+        this.handleTimerExpiration(chainId, participantId);
+      } else if (timer.timeRemaining <= 5 * 60 * 1000 && timer.warningsSent < 2) {
+        // 5 minutes or less - urgent
+        timer.status = ChainTimerStatus.URGENT;
+        this.sendTimerWarning(chainId, participantId, 'urgent');
+        timer.warningsSent = 2;
+      } else if (timer.timeRemaining <= 15 * 60 * 1000 && timer.warningsSent < 1) {
+        // 15 minutes or less - warning
+        timer.status = ChainTimerStatus.WARNING;
+        this.sendTimerWarning(chainId, participantId, 'warning');
+        timer.warningsSent = 1;
+      }
 
-    callback(timer);
+      callback(timer);
+    } catch (error) {
+      console.error('Error updating timer:', error);
+      // Fallback to expired state on error
+      callback({
+        chainId,
+        participantId,
+        startTime: now,
+        endTime: now,
+        timeRemaining: 0,
+        status: ChainTimerStatus.EXPIRED,
+        warningsSent: 0,
+      });
+    }
   }
 
   // Calculate current time remaining
-  calculateTimeRemaining(chainId: string, participantId: string): ChainTimer {
+  async calculateTimeRemaining(chainId: string, participantId: string): Promise<ChainTimer> {
     const now = new Date();
-    // In a real implementation, you'd get this from storage/database
-    // For now, we'll calculate based on chain creation time + 60 minutes
     
-    const timer: ChainTimer = {
-      chainId,
-      participantId,
-      startTime: new Date(now.getTime() - 10 * 60 * 1000), // Started 10 minutes ago
-      endTime: new Date(now.getTime() + 50 * 60 * 1000), // 50 minutes remaining
-      timeRemaining: 50 * 60 * 1000,
-      status: ChainTimerStatus.ACTIVE,
-      warningsSent: 0,
-    };
+    try {
+      // PHASE 2: Get real chain data instead of mock calculations
+      const chain = await flareChainService.getChainById(chainId);
+      
+      if (!chain) {
+        return {
+          chainId,
+          participantId,
+          startTime: now,
+          endTime: now,
+          timeRemaining: 0,
+          status: ChainTimerStatus.EXPIRED,
+          warningsSent: 0,
+        };
+      }
 
-    timer.timeRemaining = Math.max(0, timer.endTime.getTime() - now.getTime());
-    
-    if (timer.timeRemaining <= 0) {
-      timer.status = ChainTimerStatus.EXPIRED;
-    } else if (timer.timeRemaining <= 5 * 60 * 1000) {
-      timer.status = ChainTimerStatus.URGENT;
-    } else if (timer.timeRemaining <= 15 * 60 * 1000) {
-      timer.status = ChainTimerStatus.WARNING;
-    } else {
-      timer.status = ChainTimerStatus.ACTIVE;
+      const currentTurnExpiresAt = new Date(chain.currentTurnExpiresAt);
+      const timeRemaining = Math.max(0, currentTurnExpiresAt.getTime() - now.getTime());
+      
+      // Determine the turn start time (when current participant's turn began)
+      const currentParticipant = chain.participants.find(p => p.status === 'CURRENT_TURN');
+      const lastTurnRecord = chain.turnHistory?.[chain.turnHistory.length - 1];
+      const startTime = lastTurnRecord?.startedAt ? new Date(lastTurnRecord.startedAt) : now;
+      
+      const timer: ChainTimer = {
+        chainId,
+        participantId,
+        startTime,
+        endTime: currentTurnExpiresAt,
+        timeRemaining,
+        status: ChainTimerStatus.ACTIVE,
+        warningsSent: 0,
+      };
+
+      // Update status based on time remaining
+      if (timeRemaining <= 0) {
+        timer.status = ChainTimerStatus.EXPIRED;
+      } else if (timeRemaining <= 5 * 60 * 1000) {
+        timer.status = ChainTimerStatus.URGENT;
+      } else if (timeRemaining <= 15 * 60 * 1000) {
+        timer.status = ChainTimerStatus.WARNING;
+      } else {
+        timer.status = ChainTimerStatus.ACTIVE;
+      }
+
+      return timer;
+    } catch (error) {
+      console.error('Error calculating time remaining:', error);
+      return {
+        chainId,
+        participantId,
+        startTime: now,
+        endTime: now,
+        timeRemaining: 0,
+        status: ChainTimerStatus.EXPIRED,
+        warningsSent: 0,
+      };
     }
-
-    return timer;
   }
 
   // Format time remaining as string
@@ -218,10 +265,20 @@ export class ChainTimerService {
         return 0;
       }
 
+      // PHASE 2: Use actual currentTurnExpiresAt instead of overall chain expiration
       const now = new Date();
-      const expiresAt = new Date(chain.expiresAt);
+      const currentTurnExpiresAt = new Date(chain.currentTurnExpiresAt);
       
-      return Math.max(0, expiresAt.getTime() - now.getTime());
+      // Verify it's the participant's turn before calculating time
+      const currentParticipant = chain.participants.find(p => 
+        p.status === 'CURRENT_TURN'
+      );
+      
+      if (!currentParticipant || currentParticipant.userId !== participantId) {
+        return 0; // Not this participant's turn
+      }
+      
+      return Math.max(0, currentTurnExpiresAt.getTime() - now.getTime());
     } catch (error) {
       console.error('Error getting time remaining:', error);
       return 0;

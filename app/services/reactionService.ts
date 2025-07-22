@@ -12,7 +12,7 @@ import {
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { firestore } from '../config/firebase';
 import { ChainPhotoReaction } from '../types';
 
 export class ReactionService {
@@ -41,7 +41,7 @@ export class ReactionService {
         createdAt: new Date(),
       };
 
-      await addDoc(collection(db, 'photoReactions'), {
+      await addDoc(collection(firestore, 'photoReactions'), {
         ...reaction,
         photoId,
         createdAt: serverTimestamp(),
@@ -68,7 +68,7 @@ export class ReactionService {
         throw new Error('Reaction not found');
       }
 
-      await deleteDoc(doc(db, 'photoReactions', reaction.id));
+      await deleteDoc(doc(firestore, 'photoReactions', reaction.id));
 
       // Update photo document with reaction count
       await this.updatePhotoReactionCount(photoId, emoji, 'remove');
@@ -110,7 +110,7 @@ export class ReactionService {
   ): Promise<ChainPhotoReaction | null> {
     try {
       const q = query(
-        collection(db, 'photoReactions'),
+        collection(firestore, 'photoReactions'),
         where('photoId', '==', photoId),
         where('userId', '==', userId),
         where('emoji', '==', emoji)
@@ -118,7 +118,7 @@ export class ReactionService {
 
       const snapshot = await getDocs(q);
       
-      if (!snapshot.empty) {
+      if (snapshot && snapshot.docs && !snapshot.empty) {
         const doc = snapshot.docs[0];
         const data = doc.data();
         return {
@@ -143,7 +143,7 @@ export class ReactionService {
     callback: (reactions: ChainPhotoReaction[]) => void
   ): () => void {
     const q = query(
-      collection(db, 'photoReactions'),
+      collection(firestore, 'photoReactions'),
       where('photoId', '==', photoId)
     );
 
@@ -174,7 +174,7 @@ export class ReactionService {
   }> {
     try {
       const q = query(
-        collection(db, 'photoReactions'),
+        collection(firestore, 'photoReactions'),
         where('photoId', '==', photoId)
       );
 
@@ -215,7 +215,7 @@ export class ReactionService {
     action: 'add' | 'remove'
   ): Promise<void> {
     try {
-      const photoRef = doc(db, 'chainPhotos', photoId);
+      const photoRef = doc(firestore, 'chainPhotos', photoId);
       
       if (action === 'add') {
         await updateDoc(photoRef, {
@@ -278,7 +278,7 @@ export class ReactionService {
   async deletePhotoReactions(photoId: string): Promise<void> {
     try {
       const q = query(
-        collection(db, 'photoReactions'),
+        collection(firestore, 'photoReactions'),
         where('photoId', '==', photoId)
       );
 

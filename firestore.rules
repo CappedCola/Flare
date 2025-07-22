@@ -146,6 +146,47 @@ service cloud.firestore {
                    request.auth.uid == resource.data.creatorId;
     }
     
+    // Chat Rooms collection - Group chats for Flare chains
+    match /chatRooms/{chatRoomId} {
+      // Allow reading chat rooms where user is a participant
+      allow read: if request.auth != null && 
+                 request.auth.uid in resource.data.participantIds;
+      
+      // Allow creating chat rooms (typically done by chain creators)
+      allow create: if request.auth != null && 
+                   request.auth.uid in request.resource.data.participantIds;
+      
+      // Allow updating chat room metadata (last message, etc.)
+      allow update: if request.auth != null && 
+                   request.auth.uid in resource.data.participantIds;
+    }
+    
+    // Chat Messages collection - Messages within chat rooms
+    match /chatMessages/{messageId} {
+      // Users can read messages from chat rooms they participate in
+      // Note: This requires a lookup to verify participation, handled at app level
+      allow read: if request.auth != null;
+      
+      // Users can create messages in chat rooms they participate in
+      allow create: if request.auth != null && 
+                   (request.auth.uid == request.resource.data.senderId ||
+                    request.resource.data.senderId == 'system');
+      
+      // Users can update their own messages (for read receipts, etc.)
+      allow update: if request.auth != null && 
+                   request.auth.uid == resource.data.senderId;
+      
+      // Users can delete their own messages
+      allow delete: if request.auth != null && 
+                   request.auth.uid == resource.data.senderId;
+    }
+    
+    // User notification preferences - subcollection under users
+    match /users/{userId}/preferences/{preferenceType} {
+      // Users can read/write their own notification preferences
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
     // Deny all other reads/writes
     match /{document=**} {
       allow read, write: if false;

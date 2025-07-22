@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { PersonalPost } from '../types';
+import * as Notifications from 'expo-notifications';
+import { PersonalPost, NotificationTypeEnum } from '../types';
 import { subscribeToPersonalPosts } from '../services/firebaseService';
 import { useAuth } from './AuthContext';
+import NotificationService from '../services/notificationService';
+import NotificationPreferencesService from '../services/notificationPreferencesService';
 
 interface NotificationContextType {
   currentNotification: PersonalPost | null;
@@ -9,6 +12,10 @@ interface NotificationContextType {
   hideNotification: () => void;
   markAsViewed: (postId: string) => void;
   markAsDismissed: (postId: string) => void;
+  // Push notification methods
+  initializePushNotifications: () => Promise<void>;
+  handleNotificationReceived: (notification: Notifications.Notification) => void;
+  handleNotificationResponse: (response: Notifications.NotificationResponse) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -21,6 +28,9 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
   const { user } = useAuth();
   const [currentNotification, setCurrentNotification] = useState<PersonalPost | null>(null);
   const [processedPostIds, setProcessedPostIds] = useState<Set<string>>(new Set());
+
+  const notificationService = NotificationService.getInstance();
+  const preferencesService = NotificationPreferencesService.getInstance();
   
   useEffect(() => {
     if (!user?.id) return;
@@ -83,6 +93,103 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
       setCurrentNotification(null);
     }
   };
+
+  // Push notification initialization
+  const initializePushNotifications = async () => {
+    try {
+      if (!user?.id) return;
+
+      // Initialize the notification service
+      await NotificationService.initialize();
+
+      // Register for push notifications and get token
+      const pushToken = await notificationService.registerForPushNotifications();
+      
+      if (pushToken) {
+        // Update user's push token in preferences
+        await preferencesService.updatePushToken(user.id, pushToken);
+        console.log('Push notifications initialized successfully');
+      }
+
+      // Set up notification listeners
+      const receivedListener = notificationService.addNotificationReceivedListener(handleNotificationReceived);
+      const responseListener = notificationService.addNotificationResponseListener(handleNotificationResponse);
+
+      // Cleanup function
+      return () => {
+        receivedListener.remove();
+        responseListener.remove();
+      };
+    } catch (error) {
+      console.error('Failed to initialize push notifications:', error);
+    }
+  };
+
+  // Handle notification received while app is running
+  const handleNotificationReceived = (notification: Notifications.Notification) => {
+    console.log('Notification received:', notification);
+    
+    const data = notification.request.content.data;
+    const notificationType = data?.type as NotificationTypeEnum;
+
+    // Handle different notification types
+    switch (notificationType) {
+      case NotificationTypeEnum.CHAIN_INVITATION:
+        // Could show in-app notification or update some state
+        console.log('Chain invitation received:', data);
+        break;
+      case NotificationTypeEnum.CHAIN_TURN:
+        console.log('Chain turn notification received:', data);
+        break;
+      case NotificationTypeEnum.CHAIN_COMPLETED:
+        console.log('Chain completed notification received:', data);
+        break;
+      default:
+        console.log('Unknown notification type received:', notificationType);
+    }
+  };
+
+  // Handle notification response when user taps on notification
+  const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
+    console.log('Notification response:', response);
+    
+    const data = response.notification.request.content.data;
+    const notificationType = data?.type as NotificationTypeEnum;
+
+    // Navigate based on notification type
+    switch (notificationType) {
+      case NotificationTypeEnum.CHAIN_INVITATION:
+        if (data?.chainId) {
+          // Navigate to chain view screen
+          console.log('Navigate to chain:', data.chainId);
+          // navigation.navigate('FlareChainView', { chainId: data.chainId });
+        }
+        break;
+      case NotificationTypeEnum.CHAIN_TURN:
+        if (data?.chainId) {
+          // Navigate to chain response screen
+          console.log('Navigate to chain response:', data.chainId);
+          // navigation.navigate('FlareResponse', { chainId: data.chainId });
+        }
+        break;
+      case NotificationTypeEnum.CHAIN_COMPLETED:
+        if (data?.chainId) {
+          // Navigate to completed chain view
+          console.log('Navigate to completed chain:', data.chainId);
+          // navigation.navigate('FlareChainView', { chainId: data.chainId });
+        }
+        break;
+      default:
+        console.log('Unknown notification response type:', notificationType);
+    }
+  };
+
+  // Initialize push notifications when user is available
+  useEffect(() => {
+    if (user?.id) {
+      initializePushNotifications();
+    }
+  }, [user?.id]);
   
   const value: NotificationContextType = {
     currentNotification,
@@ -90,6 +197,9 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
     hideNotification,
     markAsViewed,
     markAsDismissed,
+    initializePushNotifications,
+    handleNotificationReceived,
+    handleNotificationResponse,
   };
   
   return (

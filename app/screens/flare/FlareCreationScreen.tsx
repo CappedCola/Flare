@@ -9,7 +9,6 @@ import { ChainPrompt, User } from '../../types';
 import { PromptType, PromptCategoryType } from '../../types/flare';
 import { getUserFriends } from '../../services/firebaseService';
 import { useAuth } from '../../context/AuthContext';
-import { ChainCreationTestButton } from '../../components/ChainCreationTestButton';
 
 export const FlareCreationScreen = () => {
   const navigation = useNavigation();
@@ -331,15 +330,6 @@ export const FlareCreationScreen = () => {
             </Card>
           </Layout>
 
-          {/* Diagnostic Test Button */}
-          <Layout style={styles.section}>
-            <ChainCreationTestButton 
-              photoUri={capturedPhotoUri || undefined}
-              onTestComplete={(results) => {
-                console.log('🧪 Test completed:', results);
-              }}
-            />
-          </Layout>
 
           {/* Create Button */}
           <Layout style={styles.section}>

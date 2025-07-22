@@ -600,7 +600,7 @@ export const promptService = {
         );
         
         const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
+        if (snapshot && snapshot.docs && !snapshot.empty) {
           const doc = snapshot.docs[0];
           const currentData = doc.data() as CustomPromptData;
           
@@ -631,7 +631,7 @@ export const promptService = {
         );
         
         const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
+        if (snapshot && snapshot.docs && !snapshot.empty) {
           const doc = snapshot.docs[0];
           await updateDoc(doc.ref, {
             usageCount: increment(1),

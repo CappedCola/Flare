@@ -3,12 +3,13 @@ import { Layout, Text, Card, Button, Spinner, Input } from '@ui-kitten/component
 import { StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Camera, Clock, Users, Eye, ArrowRight, Send, Image, MessageCircle } from 'lucide-react-native';
+import { Camera, Clock, Users, Eye, ArrowRight, Send, Image, MessageCircle, Lightbulb, Target } from 'lucide-react-native';
 import { useFlareChains } from '../../hooks/useFlareChains';
 import { useChainTimer } from '../../hooks/useChainTimer';
-import { FlareChain } from '../../types';
-import { ParticipantStatus } from '../../types/flare';
+import { FlareChain, ChainPrompt } from '../../types';
+import { ParticipantStatus, PromptCategoryType } from '../../types/flare';
 import { useAuth } from '../../context/AuthContext';
+import { promptService } from '../../services/promptService';
 
 export const FlareResponseScreen = () => {
   const navigation = useNavigation();
@@ -23,6 +24,8 @@ export const FlareResponseScreen = () => {
   const [interpretation, setInterpretation] = useState('');
   const [responding, setResponding] = useState(false);
   const [hasResponded, setHasResponded] = useState(false);
+  const [relatedPrompts, setRelatedPrompts] = useState<ChainPrompt[]>([]);
+  const [showPromptTips, setShowPromptTips] = useState(false);
 
   // Get chainId from navigation params
   const chainId = (route.params as any)?.chainId || 'demo-chain';
@@ -78,6 +81,9 @@ export const FlareResponseScreen = () => {
           }
           // Note: We'll check for CURRENT_TURN status in the render logic
         }
+        
+        // Load related prompts for inspiration
+        await loadRelatedPrompts(chainData.prompt);
       } else {
         Alert.alert('Error', 'Chain not found');
         navigation.goBack();
@@ -90,17 +96,77 @@ export const FlareResponseScreen = () => {
     }
   };
 
+  // Get category-specific tips
+  const getCategoryTips = (category: PromptCategoryType): string => {
+    switch (category) {
+      case PromptCategoryType.EMOTIONS:
+        return "Express genuine feelings through facial expressions, body language, or symbolic objects that represent your emotional state.";
+      case PromptCategoryType.ADVENTURE:
+        return "Capture the excitement of exploration - show movement, new places, or the thrill of discovery in your photo.";
+      case PromptCategoryType.CREATIVITY:
+        return "Let your imagination shine! Use unique compositions, play with colors, or create something artistic with everyday objects.";
+      case PromptCategoryType.CONNECTION:
+        return "Focus on relationships and bonds - capture interactions, shared moments, or symbols of connection with others.";
+      case PromptCategoryType.GROWTH:
+        return "Show progress and development - before/after comparisons, learning moments, or signs of personal evolution.";
+      default:
+        return "Be authentic and creative in your interpretation of this prompt.";
+    }
+  };
+
+  // Load related prompts based on current prompt
+  const loadRelatedPrompts = async (currentPrompt: ChainPrompt) => {
+    try {
+      if (currentPrompt.category) {
+        // Get prompts from same category
+        const categoryPrompts = await promptService.getPromptsByCategory(currentPrompt.category);
+        const filteredPrompts = categoryPrompts
+          .filter(p => p.id !== currentPrompt.id)
+          .slice(0, 3);
+        setRelatedPrompts(filteredPrompts);
+      } else {
+        // Get trending prompts as fallback
+        const trendingPrompts = await promptService.getTrendingPrompts();
+        setRelatedPrompts(trendingPrompts.slice(0, 3));
+      }
+    } catch (error) {
+      console.error('Error loading related prompts:', error);
+    }
+  };
+
   const setupRealtimeUpdates = () => {
     const unsubscribe = subscribeToChain(chainId, (updatedChain) => {
       if (updatedChain) {
+        console.log('🔄 Real-time chain update received');
         setChain(updatedChain);
         
-        // Check if user has responded or status changed
+        // PHASE 2: Enhanced real-time status monitoring
         const userParticipant = updatedChain.participants.find(p => p.userId === currentUserId);
         if (userParticipant) {
           if (userParticipant.status === ParticipantStatus.RESPONDED) {
             setHasResponded(true);
+          } else if (userParticipant.status === ParticipantStatus.TURN_EXPIRED) {
+            // User's turn expired - navigate away or show expired state
+            setHasResponded(true);
+            Alert.alert(
+              'Turn Expired',
+              'Your turn has expired. The chain has continued to the next participant.',
+              [{ text: 'OK', onPress: () => navigation.goBack() }]
+            );
+          } else if (userParticipant.status !== ParticipantStatus.CURRENT_TURN && !hasResponded) {
+            // No longer user's turn but they haven't responded
+            Alert.alert(
+              'Turn Changed',
+              'It is no longer your turn to respond to this chain.',
+              [{ text: 'OK', onPress: () => navigation.goBack() }]
+            );
           }
+        }
+
+        // Check if chain overall has expired
+        const now = new Date();
+        if (now > new Date(updatedChain.currentTurnExpiresAt) && !hasResponded) {
+          console.log('⏰ Chain turn expired detected via real-time update');
         }
       }
     });
@@ -111,6 +177,35 @@ export const FlareResponseScreen = () => {
 
   const handleViewChain = () => {
     navigation.navigate('FlareChainView' as never, { chainId } as never);
+  };
+
+  const handleOpenChat = async () => {
+    if (!chainId) return;
+    
+    try {
+      // Check if chat is available for this chain
+      const { chatService } = await import('../../services/chatService');
+      const chatRoom = await chatService.getChatRoomByChainId(chainId);
+      
+      if (!chatRoom) {
+        Alert.alert(
+          'Chat Not Available',
+          'This chain does not have a chat room yet. Chat will be available once the chain is fully set up.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      // Navigate to chat
+      navigation.navigate('FlareChat' as never, { chainId } as never);
+    } catch (error) {
+      console.error('Error checking chat availability:', error);
+      Alert.alert(
+        'Chat Error',
+        'Unable to access chat at this time. Please try again later.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleTakeResponse = () => {
@@ -158,7 +253,44 @@ export const FlareResponseScreen = () => {
       );
     } catch (error) {
       console.error('Error submitting response:', error);
-      Alert.alert('Error', 'Failed to submit response. Please try again.');
+      
+      // PHASE 3: Enhanced error handling with specific messaging
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (errorMessage.includes('turn has expired') || errorMessage.includes('about to expire')) {
+        // Turn expiration error - navigate away and show specific message
+        setHasResponded(true);
+        Alert.alert(
+          'Turn Expired',
+          'Your turn expired while submitting. The chain has moved to the next participant.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } else if (errorMessage.includes('no longer your turn')) {
+        // Turn changed while submitting
+        setHasResponded(true);
+        Alert.alert(
+          'Turn Changed',
+          'It is no longer your turn to respond to this chain.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } else if (errorMessage.includes('Chain not found')) {
+        // Chain was deleted
+        Alert.alert(
+          'Chain Unavailable',
+          'This chain is no longer available.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } else {
+        // Generic error - allow retry
+        Alert.alert(
+          'Upload Failed',
+          'Failed to submit your response. Please check your connection and try again.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Retry', onPress: () => handleSubmitResponse() }
+          ]
+        );
+      }
     } finally {
       setResponding(false);
     }
@@ -257,6 +389,68 @@ export const FlareResponseScreen = () => {
                 </Text>
               </Layout>
             </Card>
+            
+            {/* Prompt Tips and Guidance */}
+            <Button
+              appearance="ghost"
+              size="small"
+              style={styles.tipsToggle}
+              onPress={() => setShowPromptTips(!showPromptTips)}
+              accessoryLeft={(props) => <Lightbulb {...props} size={16} />}
+            >
+              {showPromptTips ? 'Hide Tips' : 'Show Prompt Tips'}
+            </Button>
+            
+            {showPromptTips && (
+              <Card style={styles.tipsCard}>
+                <Layout style={styles.tipsContent}>
+                  <Layout style={styles.tipSection}>
+                    <Layout style={styles.tipHeader}>
+                      <Target size={16} color="#FF4D4D" />
+                      <Text category="s1" style={styles.tipTitle}>Photo Ideas</Text>
+                    </Layout>
+                    <Text category="c1" style={styles.tipText}>
+                      • Think about different angles and perspectives
+                    </Text>
+                    <Text category="c1" style={styles.tipText}>
+                      • Show your personal interpretation of "{chain.prompt.title}"
+                    </Text>
+                    <Text category="c1" style={styles.tipText}>
+                      • Consider lighting, composition, and storytelling
+                    </Text>
+                  </Layout>
+                  
+                  {chain.prompt.category && (
+                    <Layout style={styles.tipSection}>
+                      <Layout style={styles.tipHeader}>
+                        <Camera size={16} color="#FF4D4D" />
+                        <Text category="s1" style={styles.tipTitle}>
+                          {chain.prompt.category.charAt(0).toUpperCase() + chain.prompt.category.slice(1)} Tips
+                        </Text>
+                      </Layout>
+                      <Text category="c1" style={styles.tipText}>
+                        {getCategoryTips(chain.prompt.category)}
+                      </Text>
+                    </Layout>
+                  )}
+                  
+                  {relatedPrompts.length > 0 && (
+                    <Layout style={styles.tipSection}>
+                      <Text category="s1" style={styles.tipTitle}>Related Prompts for Inspiration</Text>
+                      {relatedPrompts.map((prompt, index) => (
+                        <Layout key={prompt.id} style={styles.relatedPrompt}>
+                          <Text style={styles.relatedEmoji}>{prompt.emoji}</Text>
+                          <Layout style={styles.relatedTextContainer}>
+                            <Text category="c1" style={styles.relatedTitle}>{prompt.title}</Text>
+                            <Text category="c2" appearance="hint" numberOfLines={1}>{prompt.description}</Text>
+                          </Layout>
+                        </Layout>
+                      ))}
+                    </Layout>
+                  )}
+                </Layout>
+              </Card>
+            )}
           </Layout>
 
           {/* Chain Progress - Sequential Turn Flow */}
@@ -323,14 +517,24 @@ export const FlareResponseScreen = () => {
           <Layout style={styles.section}>
             <Layout style={styles.sectionHeader}>
               <Text category="h6" style={styles.sectionTitle}>Previous Photos</Text>
-              <Button
-                size="tiny"
-                appearance="ghost"
-                onPress={handleViewChain}
-                accessoryLeft={(props) => <Eye {...props} size={16} />}
-              >
-                View All
-              </Button>
+              <Layout style={styles.actionButtons}>
+                <Button
+                  size="tiny"
+                  appearance="ghost"
+                  onPress={handleOpenChat}
+                  accessoryLeft={(props) => <MessageCircle {...props} size={16} />}
+                >
+                  Chat
+                </Button>
+                <Button
+                  size="tiny"
+                  appearance="ghost"
+                  onPress={handleViewChain}
+                  accessoryLeft={(props) => <Eye {...props} size={16} />}
+                >
+                  View All
+                </Button>
+              </Layout>
             </Layout>
             <Text category="c1" appearance="hint" style={styles.photoCount}>
               {chain.photos.length} photos so far
@@ -393,14 +597,31 @@ export const FlareResponseScreen = () => {
               {/* Submit Button */}
               <Button
                 style={styles.responseButton}
-                status="primary"
+                status={timeRemaining <= 5 * 60 * 1000 ? "danger" : "primary"} // Red when < 5 minutes
                 size="large"
-                disabled={!capturedPhotoUri || responding}
+                disabled={!capturedPhotoUri || responding || isExpired || timeRemaining <= 30 * 1000} // Disable 30 seconds before expiration
                 onPress={handleSubmitResponse}
                 accessoryLeft={responding ? (props) => <Spinner {...props} size="small" /> : (props) => <Send {...props} size={20} />}
               >
-                {responding ? 'Submitting...' : 'Submit Response'}
+                {responding ? 'Submitting...' : 
+                 isExpired ? 'Turn Expired' :
+                 timeRemaining <= 30 * 1000 ? 'Too Late to Submit' :
+                 timeRemaining <= 5 * 60 * 1000 ? 'Submit Now!' : 
+                 'Submit Response'}
               </Button>
+
+              {/* Phase 4: Warning message for urgent timing */}
+              {timeRemaining <= 5 * 60 * 1000 && timeRemaining > 30 * 1000 && !isExpired && (
+                <Text category="c1" style={[styles.urgencyWarning, { color: timerColor }]}>
+                  ⚠️ Hurry! Less than 5 minutes remaining
+                </Text>
+              )}
+              
+              {timeRemaining <= 30 * 1000 && !isExpired && (
+                <Text category="c1" style={[styles.urgencyWarning, { color: '#FF6B6B' }]}>
+                  🚨 Too late to submit - turn ending soon
+                </Text>
+              )}
 
               <Button
                 style={styles.skipButton}
@@ -542,6 +763,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   promptCard: {
     borderLeftWidth: 4,
   },
@@ -553,6 +778,54 @@ const styles = StyleSheet.create({
   },
   promptText: {
     fontStyle: 'italic',
+  },
+  tipsToggle: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  tipsCard: {
+    marginTop: 12,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+  },
+  tipsContent: {
+    padding: 8,
+  },
+  tipSection: {
+    marginBottom: 16,
+  },
+  tipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  tipTitle: {
+    marginLeft: 8,
+    fontWeight: '600',
+    color: '#2C2C2C',
+  },
+  tipText: {
+    marginBottom: 4,
+    lineHeight: 18,
+    color: '#555555',
+  },
+  relatedPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingVertical: 4,
+  },
+  relatedEmoji: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  relatedTextContainer: {
+    flex: 1,
+  },
+  relatedTitle: {
+    fontWeight: '500',
+    color: '#2C2C2C',
   },
   progressCard: {
     padding: 12,
@@ -726,5 +999,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCC',
     marginHorizontal: 4,
+  },
+  // Phase 4: Urgency warning styles
+  urgencyWarning: {
+    textAlign: 'center',
+    fontWeight: 'bold',
+    marginTop: 8,
+    fontSize: 12,
   },
 });

@@ -19,6 +19,7 @@ import { FlareCompletionScreen } from '../screens/flare/FlareCompletionScreen';
 import { FlareHomeScreen } from '../screens/flare/FlareHomeScreen';
 import { FlareDiscoveryScreen } from '../screens/flare/FlareDiscoveryScreen';
 import { FlareLeaderboardScreen } from '../screens/flare/FlareLeaderboardScreen';
+import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { NotificationModal } from '../components/NotificationModal';
@@ -130,6 +131,13 @@ const MainNavigator = () => {
       <MainStack.Screen 
         name="FlareLeaderboard" 
         component={FlareLeaderboardScreen}
+        options={{
+          animation: 'slide_from_right'
+        }}
+      />
+      <MainStack.Screen 
+        name="NotificationSettings" 
+        component={NotificationSettingsScreen}
         options={{
           animation: 'slide_from_right'
         }}

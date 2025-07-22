@@ -637,7 +637,7 @@ export const getCurrentStreak = async (userId: string): Promise<Streak | null> =
     );
     const streaksSnapshot = await getDocs(q);
     
-    if (!streaksSnapshot.empty) {
+    if (streaksSnapshot && streaksSnapshot.docs && !streaksSnapshot.empty) {
       const docSnapshot = streaksSnapshot.docs[0];
       return { id: docSnapshot.id, ...docSnapshot.data() } as Streak;
     }
@@ -930,7 +930,7 @@ export const sendFriendRequest = async (fromUserId: string, toUsername: string):
     const q = query(usersRef, where('username', '==', toUsername.toLowerCase()));
     const userSnapshot = await getDocs(q);
     
-    if (!userSnapshot || userSnapshot.empty) {
+    if (!userSnapshot || !userSnapshot.docs || userSnapshot.empty) {
       throw new Error('User not found');
     }
     
@@ -959,7 +959,7 @@ export const sendFriendRequest = async (fromUserId: string, toUsername: string):
     );
     const existingRequest = await getDocs(existingRequestQuery);
     
-    if (existingRequest && !existingRequest.empty) {
+    if (existingRequest && existingRequest.docs && !existingRequest.empty) {
       throw new Error('Friend request already sent');
     }
     
@@ -1294,7 +1294,7 @@ export const subscribeToAcceptedFriendRequests = (userId: string, callback: (acc
     
     return onSnapshot(outgoingQuery, 
       async (snapshot) => {
-        if (!snapshot || snapshot.empty) {
+        if (!snapshot || !snapshot.docs || snapshot.empty) {
           return;
         }
         

@@ -2,6 +2,8 @@ import { FlareChain, ChainParticipant, ChainPhoto, ChainPrompt, User, TurnRecord
 import { ChainStatus, ParticipantStatus } from '../types/flare';
 import { firestore, storage } from '../config/firebase';
 import { getUserById, withFirebaseRetry, handleFirebaseError } from './firebaseService';
+import NotificationService from './notificationService';
+import NotificationPreferencesService from './notificationPreferencesService';
 import { 
   collection, 
   doc, 
@@ -237,8 +239,26 @@ export const flareChainService = {
         console.warn('Failed to send chain invitations:', error);
       }
 
-      // TODO: Create group chat
-      // newChain.groupChatId = await this.createGroupChat(chainId, participants);
+      // Create group chat for the chain (MANDATORY - chain creation fails if this fails)
+      console.log('💬 Creating mandatory chat room for chain with prompt context...');
+      const { chatService } = await import('./chatService');
+      const chatRoomId = await chatService.createChatRoom(chainId, participantIds, prompt);
+      console.log('✅ Chat room created successfully with prompt welcome:', chatRoomId);
+      
+      // Update the chain with the chat room ID
+      await updateDoc(chainRef, { groupChatId: chatRoomId });
+      newChain.groupChatId = chatRoomId;
+      
+      // Send welcome message to chat
+      try {
+        await chatService.sendSystemMessage(chatRoomId, 
+          `Welcome to the chain! Created by ${creatorUser.username || creatorUser.displayName}`
+        );
+        console.log('✅ Welcome message sent to chat room');
+      } catch (welcomeError) {
+        console.warn('Failed to send welcome message (non-critical):', welcomeError);
+        // Welcome message failure is non-critical
+      }
 
       console.log('🎉 Chain created successfully!', chainId);
       return newChain;
@@ -542,9 +562,48 @@ export const flareChainService = {
       // Update chain document
       await updateDoc(doc(firestore, 'flareChains', chainId), updateData);
 
+      // Send milestone messages to chat
+      try {
+        const { chatService } = await import('./chatService');
+        
+        // Send turn completion message
+        await chatService.sendChainMilestoneMessage(
+          chainData.groupChatId || chainId,
+          'turn_complete',
+          currentParticipant.username,
+          chainData.prompt?.title
+        );
+        
+        // If next participant exists, send turn start message
+        if (nextIndex < chainData.participants.length) {
+          const nextParticipant = chainData.participants[nextIndex];
+          await chatService.sendChainMilestoneMessage(
+            chainData.groupChatId || chainId,
+            'turn_start',
+            nextParticipant.username,
+            chainData.prompt?.title
+          );
+        }
+      } catch (chatError) {
+        console.warn('Failed to send milestone messages:', chatError);
+      }
+
       // Complete chain if this was the last participant
       if (nextIndex >= chainData.participants.length) {
         await this.completeChain(chainId);
+        
+        // Send chain completion message
+        try {
+          const { chatService } = await import('./chatService');
+          await chatService.sendChainMilestoneMessage(
+            chainData.groupChatId || chainId,
+            'chain_complete',
+            undefined,
+            chainData.prompt?.title
+          );
+        } catch (chatError) {
+          console.warn('Failed to send chain completion message:', chatError);
+        }
       }
 
       console.log(`Photo submitted successfully by ${userId}, turn duration: ${turnDuration} minutes`);
@@ -769,15 +828,57 @@ export const flareChainService = {
   // Send chain invitations (notifications)
   async sendChainInvitations(chainId: string, userIds: string[], promptTitle: string): Promise<void> {
     try {
-      // TODO: Implement push notifications
-      console.log(`Sending chain invitations for "${promptTitle}" to:`, userIds);
+      console.log(`🔔 Sending chain invitations for "${promptTitle}" to:`, userIds);
       
-      // For now, just log. In real implementation:
-      // 1. Create notification documents in Firestore
-      // 2. Send push notifications
-      // 3. Create in-app notifications
+      const preferencesService = NotificationPreferencesService.getInstance();
+      
+      // Get users who have chain invitation notifications enabled
+      const usersWithNotifications = await preferencesService.getUsersWithNotificationEnabled(
+        userIds,
+        'chainInvitations'
+      );
+      
+      if (usersWithNotifications.length === 0) {
+        console.log('No users have chain invitation notifications enabled');
+        return;
+      }
+      
+      console.log(`📤 Sending notifications to ${usersWithNotifications.length} users with enabled notifications`);
+      
+      // Create notification data
+      const notificationData = NotificationService.createChainInvitationNotification(
+        'A friend', // We could get actual sender username if needed
+        chainId,
+        promptTitle
+      );
+      
+      // Send notifications to each user
+      const notificationPromises = usersWithNotifications.map(async ({ userId, pushToken }) => {
+        try {
+          // Here you would typically use Expo's server API to send the notification
+          // For now, we'll create a local notification for testing
+          // In production, you'd call your backend service or Expo's push API
+          
+          console.log(`Sending notification to user ${userId} with token ${pushToken.substring(0, 20)}...`);
+          
+          // TODO: Replace with actual push notification sending via backend service
+          // Example: await sendPushNotification(pushToken, notificationData);
+          
+          // For now, create local notification for testing
+          await NotificationService.getInstance().sendLocalNotification(notificationData);
+          
+        } catch (error) {
+          console.error(`Failed to send notification to user ${userId}:`, error);
+        }
+      });
+      
+      await Promise.allSettled(notificationPromises);
+      
+      console.log('✅ Chain invitation notifications sent successfully');
+      
     } catch (error) {
-      console.error('Error sending invitations:', error);
+      console.error('Error sending chain invitations:', error);
+      // Don't throw error to avoid breaking chain creation
     }
   },
 
@@ -1070,6 +1171,71 @@ export const flareChainService = {
       
     } catch (error) {
       console.error('❌ Error fixing chain states:', error);
+    }
+  },
+
+  // Backfill missing chat rooms for existing chains (one-time operation)
+  async backfillMissingChatRooms(): Promise<void> {
+    try {
+      console.log('🔧 Starting chat room backfill for existing chains...');
+      
+      // Get all chains that don't have groupChatId
+      const chainsQuery = query(collection(firestore, 'flareChains'));
+      const snapshot = await getDocs(chainsQuery);
+      
+      const chainsToFix: FlareChain[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        // Check if chain is missing groupChatId
+        if (!data.groupChatId && data.participantIds && data.participantIds.length > 0) {
+          chainsToFix.push({ id: doc.id, ...data } as FlareChain);
+        }
+      });
+      
+      console.log(`Found ${chainsToFix.length} chains missing chat rooms`);
+      
+      // Create chat rooms for each chain
+      const { chatService } = await import('./chatService');
+      const fixes: Promise<void>[] = [];
+      
+      for (const chain of chainsToFix) {
+        const fix = async () => {
+          try {
+            console.log(`Creating chat room for chain ${chain.id}...`);
+            
+            // Create the chat room with prompt context
+            const chatRoomId = await chatService.createChatRoom(chain.id, chain.participantIds, chain.prompt);
+            console.log(`✅ Chat room created: ${chatRoomId} for chain ${chain.id}`);
+            
+            // Update the chain document with groupChatId
+            await updateDoc(doc(firestore, 'flareChains', chain.id), {
+              groupChatId: chatRoomId
+            });
+            console.log(`✅ Chain ${chain.id} updated with groupChatId: ${chatRoomId}`);
+            
+            // Send welcome message
+            const creatorParticipant = chain.participants.find(p => p.userId === chain.creatorId);
+            const creatorUsername = creatorParticipant?.username || chain.creatorUsername || 'Unknown';
+            
+            await chatService.sendSystemMessage(chatRoomId, 
+              `Welcome to the chain! Created by ${creatorUsername} 🎉`
+            );
+            
+          } catch (error) {
+            console.error(`❌ Failed to create chat room for chain ${chain.id}:`, error);
+          }
+        };
+        
+        fixes.push(fix());
+      }
+      
+      // Execute all fixes in parallel
+      await Promise.all(fixes);
+      console.log(`✅ Chat room backfill completed for ${chainsToFix.length} chains`);
+      
+    } catch (error) {
+      console.error('❌ Error during chat room backfill:', error);
+      throw error;
     }
   },
 };
