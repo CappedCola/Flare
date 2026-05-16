@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Layout, Text, Card, Button, Spinner, Input, Modal } from '@ui-kitten/components';
-import { StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { StyleSheet, ScrollView, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Calendar, Heart, TrendingUp, Plus, Search, Clock, Star, X } from 'lucide-react-native';
@@ -20,6 +20,7 @@ export const FlarePromptScreen = () => {
     error,
     getTodaysPrompt,
     createCustomPrompt,
+    refreshPrompts,
   } = usePrompts();
   const [todaysPrompt, setTodaysPrompt] = useState<DailyPrompt | null>(null);
   const [activeTab, setActiveTab] = useState<'trending' | 'categories' | 'favorites' | 'custom'>('trending');
@@ -37,6 +38,7 @@ export const FlarePromptScreen = () => {
   const [searchTitle, setSearchTitle] = useState('Search Results');
   const [isSearching, setIsSearching] = useState(false);
   const [newPromptTagsInput, setNewPromptTagsInput] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const tabs: Array<{
     key: 'trending' | 'categories' | 'favorites' | 'custom';
@@ -187,6 +189,26 @@ export const FlarePromptScreen = () => {
     }
   };
 
+  const refreshPromptData = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshPrompts();
+      await loadTodaysPrompt();
+      await loadCustomPrompts();
+      if (currentUserId) {
+        await loadFavoritePrompts(currentUserId);
+        await loadPersonalizedPrompts();
+      }
+      setSearchResults([]);
+      setSearchMode(false);
+      setSearchQuery('');
+    } catch (error) {
+      console.error('Error refreshing prompts:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const parseTagsInput = (value: string): string[] =>
     value
       .split(',')
@@ -245,9 +267,19 @@ export const FlarePromptScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container}>
       <Layout style={styles.container}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={refreshPromptData}
+              tintColor="#FF4D4D"
+            />
+          }
+        >
           {/* Header */}
           <Layout style={styles.header}>
             <Text category="h4" style={styles.title}>Choose a Prompt</Text>
