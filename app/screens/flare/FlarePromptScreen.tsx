@@ -1,17 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Layout, Text, Card, Button, Spinner, Input, Modal } from '@ui-kitten/components';
 import { StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Calendar, Sparkles, Heart, Compass, TrendingUp, Plus, Search, Clock, Star, BookmarkPlus, Filter, X } from 'lucide-react-native';
+import { Calendar, Heart, TrendingUp, Plus, Search, Clock, Star, X } from 'lucide-react-native';
+import { useAuth } from '../../context/AuthContext';
 import { usePrompts } from '../../hooks/usePrompts';
-import { ChainPrompt, DailyPrompt } from '../../types';
+import { ChainPrompt, CustomPromptData, DailyPrompt } from '../../types';
 import { PromptCategoryType } from '../../types/flare';
-import { promptService, CustomPromptData } from '../../services/promptService';
+import { promptService } from '../../services/promptService';
 
 export const FlarePromptScreen = () => {
   const navigation = useNavigation();
-  const { dailyPrompts, categories, trendingPrompts, loading, error, getTodaysPrompt } = usePrompts();
+  const { user } = useAuth();
+  const { categories, trendingPrompts, loading, error, getTodaysPrompt, createCustomPrompt } = usePrompts();
   const [todaysPrompt, setTodaysPrompt] = useState<DailyPrompt | null>(null);
   const [activeTab, setActiveTab] = useState<'trending' | 'categories' | 'favorites' | 'custom'>('trending');
   const [favoritePrompts, setFavoritePrompts] = useState<ChainPrompt[]>([]);
@@ -23,25 +25,32 @@ export const FlarePromptScreen = () => {
   const [selectedCategory, setSelectedCategory] = useState<PromptCategoryType | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreatingPrompt, setIsCreatingPrompt] = useState(false);
-  
-  const currentUserId = 'current-user-id'; // TODO: Get from auth context
-  const currentUsername = 'current-user'; // TODO: Get from auth context
+  const [searchResults, setSearchResults] = useState<ChainPrompt[]>([]);
+  const [searchMode, setSearchMode] = useState(false);
+  const [searchTitle, setSearchTitle] = useState('Search Results');
+  const [isSearching, setIsSearching] = useState(false);
+
+  const currentUserId = user?.id;
 
   useEffect(() => {
     loadTodaysPrompt();
-    loadFavoritePrompts();
     loadCustomPrompts();
     loadPersonalizedPrompts();
-  }, []);
+    if (currentUserId) {
+      loadFavoritePrompts(currentUserId);
+    } else {
+      setFavoritePrompts([]);
+    }
+  }, [currentUserId]);
 
   const loadTodaysPrompt = async () => {
     const prompt = await getTodaysPrompt();
     setTodaysPrompt(prompt);
   };
 
-  const loadFavoritePrompts = async () => {
+  const loadFavoritePrompts = async (userId: string) => {
     try {
-      const favorites = await promptService.getUserFavorites(currentUserId);
+      const favorites = await promptService.getUserFavorites(userId);
       setFavoritePrompts(favorites);
     } catch (error) {
       console.error('Error loading favorites:', error);
@@ -59,6 +68,11 @@ export const FlarePromptScreen = () => {
 
   const loadPersonalizedPrompts = async () => {
     try {
+      if (!currentUserId) {
+        setPersonalizedPrompts([]);
+        return;
+      }
+
       const personalized = await promptService.getPersonalizedRecommendations(currentUserId, 8);
       setPersonalizedPrompts(personalized);
     } catch (error) {
@@ -67,12 +81,19 @@ export const FlarePromptScreen = () => {
   };
 
   const handleSelectPrompt = async (prompt: ChainPrompt | DailyPrompt) => {
-    // Record prompt usage
-    await promptService.recordPromptUsage(currentUserId, prompt.id);
+    if (currentUserId) {
+      await promptService.recordPromptUsage(currentUserId, prompt.id);
+    }
+
     navigation.navigate('FlareCreation' as never, { prompt } as never);
   };
 
   const handleToggleFavorite = async (prompt: ChainPrompt) => {
+    if (!currentUserId) {
+      Alert.alert('Sign in required', 'Sign in to save prompts to favorites.');
+      return;
+    }
+
     try {
       const isFavorite = favoritePrompts.some(f => f.id === prompt.id);
       
@@ -95,16 +116,18 @@ export const FlarePromptScreen = () => {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
+    if (!currentUserId) {
+      Alert.alert('Sign in required', 'Sign in to create custom prompts.');
+      return;
+    }
     
     try {
       setIsCreatingPrompt(true);
-      const customPrompt = await promptService.createCustomPrompt(
+      const customPrompt = await createCustomPrompt(
         newPromptTitle,
         newPromptDescription,
-        currentUserId,
-        currentUsername,
         selectedCategory,
-        []
+        [],
       );
       
       setCustomPrompts(prev => [customPrompt, ...prev]);
@@ -125,37 +148,46 @@ export const FlarePromptScreen = () => {
   };
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setSearchMode(false);
+      return;
+    }
+
     try {
+      setIsSearching(true);
       const searchResults = await promptService.searchPrompts(searchQuery);
-      // TODO: Navigate to search results screen or show results in modal
-      Alert.alert('Search Results', `Found ${searchResults.length} prompts matching "${searchQuery}"`);
+      setSearchResults(searchResults);
+      setSearchTitle(`Search results for "${searchQuery}"`);
+      setSearchMode(true);
     } catch (error) {
       Alert.alert('Error', 'Search failed');
+    } finally {
+      setIsSearching(false);
     }
   };
 
   const handleBrowseCategory = async (categoryType: PromptCategoryType) => {
     try {
       const categoryPrompts = await promptService.getPromptsByCategory(categoryType);
-      // Navigate to category selection screen (TODO: implement)
-      Alert.alert('Category Prompts', `Found ${categoryPrompts.length} prompts in this category!`);
+      const categoryName = categories.find((category) => category.type === categoryType)?.name ?? 'Category';
+      setSearchResults(categoryPrompts);
+      setSearchTitle(`${categoryName} prompts`);
+      setSearchMode(true);
+      setSearchQuery(categoryName);
     } catch (err) {
       Alert.alert('Error', 'Failed to load category prompts');
     }
   };
 
-  const getCategoryIcon = (categoryType: PromptCategoryType) => {
-    switch (categoryType) {
-      case PromptCategoryType.EMOTIONS: return Heart;
-      case PromptCategoryType.ADVENTURE: return Compass;
-      case PromptCategoryType.CREATIVITY: return Sparkles;
-      case PromptCategoryType.CONNECTION: return Heart;
-      case PromptCategoryType.GROWTH: return TrendingUp;
-      default: return Calendar;
-    }
+  const clearSearchMode = () => {
+    setSearchMode(false);
+    setSearchResults([]);
+    setSearchTitle('Search Results');
+    setSearchQuery('');
   };
+
+  const isPromptFavorite = (promptId: string) => favoritePrompts.some((item) => item.id === promptId);
 
   if (loading) {
     return (
@@ -260,7 +292,6 @@ export const FlarePromptScreen = () => {
           <Layout style={styles.section}>
             <Text category="h6" style={styles.sectionTitle}>Browse Categories</Text>
             {categories.map((category) => {
-              const IconComponent = getCategoryIcon(category.type);
               return (
                 <Card
                   key={category.id}
@@ -298,16 +329,91 @@ export const FlarePromptScreen = () => {
               style={styles.searchInput}
               placeholder="Search prompts..."
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={(value) => {
+                if (!value.trim()) {
+                  setSearchResults([]);
+                  setSearchMode(false);
+                }
+                setSearchQuery(value);
+              }}
               onSubmitEditing={handleSearch}
               accessoryLeft={(props) => <Search {...props} size={20} />}
               accessoryRight={(props) => (
-                <TouchableOpacity onPress={() => console.log('Open filters')}>
-                  <Filter {...props} size={20} />
+                <TouchableOpacity onPress={handleSearch}>
+                  <Search {...props} size={20} />
                 </TouchableOpacity>
               )}
             />
+            {isSearching ? (
+              <Layout style={styles.searchBusyState}>
+                <Text category="c1" appearance="hint">
+                  Searching...
+                </Text>
+              </Layout>
+            ) : null}
           </Layout>
+
+          {searchMode ? (
+            <Layout style={styles.section}>
+              <Layout style={styles.searchHeader}>
+                <Text category="h6" style={styles.sectionTitle}>
+                  {searchTitle}
+                </Text>
+                <TouchableOpacity onPress={clearSearchMode}>
+                  <Text category="s2" style={styles.clearSearchText}>
+                    Clear
+                  </Text>
+                </TouchableOpacity>
+              </Layout>
+
+              {searchResults.length > 0 ? (
+                <Layout style={styles.searchResultContainer}>
+                  {searchResults.map((prompt) => (
+                    <Card
+                      key={prompt.id}
+                      style={styles.searchResultCard}
+                      onPress={() => handleSelectPrompt(prompt)}
+                    >
+                      <Layout style={styles.searchResultContent}>
+                        <Layout style={styles.searchResultHeader}>
+                          <Text style={styles.searchResultEmoji}>{prompt.emoji || '💭'}</Text>
+                          <TouchableOpacity
+                            style={styles.favoriteButton}
+                            onPress={() => handleToggleFavorite(prompt)}
+                          >
+                            <Heart
+                              size={14}
+                              color={isPromptFavorite(prompt.id) ? '#FF4D4D' : '#CCCCCC'}
+                              fill={isPromptFavorite(prompt.id) ? '#FF4D4D' : 'transparent'}
+                            />
+                          </TouchableOpacity>
+                        </Layout>
+                        <Text category="s2" style={styles.searchResultTitle}>
+                          {prompt.title}
+                        </Text>
+                        <Text
+                          category="c2"
+                          appearance="hint"
+                          style={styles.searchResultDescription}
+                          numberOfLines={2}
+                        >
+                          {prompt.description}
+                        </Text>
+                      </Layout>
+                    </Card>
+                  ))}
+                </Layout>
+              ) : (
+                <Card style={styles.emptyCard}>
+                  <Layout style={styles.emptyContent}>
+                    <Text category="s1" style={styles.emptyText}>
+                      No prompts found
+                    </Text>
+                  </Layout>
+                </Card>
+              )}
+            </Layout>
+          ) : null}
 
           {/* Tab Navigation */}
           <Layout style={styles.tabSection}>
@@ -425,10 +531,9 @@ export const FlarePromptScreen = () => {
           )}
 
           {activeTab === 'categories' && (
-            <Layout style={styles.section}>
+              <Layout style={styles.section}>
               <Text category="h6" style={styles.sectionTitle}>Browse Categories</Text>
               {categories.map((category) => {
-                const IconComponent = getCategoryIcon(category.type);
                 return (
                   <Card
                     key={category.id}
@@ -806,6 +911,43 @@ const styles = StyleSheet.create({
   // Search Styles
   searchInput: {
     marginBottom: 8,
+  },
+  searchBusyState: {
+    marginTop: 6,
+  },
+  searchHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  clearSearchText: {
+    color: '#FF4D4D',
+  },
+  searchResultContainer: {
+    gap: 8,
+  },
+  searchResultCard: {
+    marginBottom: 8,
+  },
+  searchResultContent: {
+    padding: 12,
+  },
+  searchResultHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  searchResultEmoji: {
+    fontSize: 24,
+  },
+  searchResultTitle: {
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  searchResultDescription: {
+    textAlign: 'left',
   },
   // Tab Styles
   tabSection: {
