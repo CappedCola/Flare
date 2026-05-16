@@ -30,6 +30,16 @@ export const FlareDiscoveryScreen = () => {
   const [selectedChainCategory, setSelectedChainCategory] = useState<PromptCategoryType | undefined>(undefined);
 
   const currentUserId = user?.id;
+  const tabs: Array<{
+    key: 'trending' | 'people' | 'chains' | 'nearby';
+    label: string;
+    icon: typeof TrendingUp;
+  }> = [
+    { key: 'trending', label: 'Trending', icon: TrendingUp },
+    { key: 'people', label: 'People', icon: Users },
+    { key: 'chains', label: 'Chains', icon: Star },
+    { key: 'nearby', label: 'Nearby', icon: MapPin },
+  ];
   const chainCategoryOptions = ['all', ...Object.values(PromptCategoryType)] as const;
   const userLevelFilters = ['beginner', 'intermediate', 'expert'] as const;
   const responseTimeFilters = ['fast', 'medium', 'relaxed'] as const;
@@ -610,19 +620,14 @@ export const FlareDiscoveryScreen = () => {
         <Layout style={styles.tabSection}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <Layout style={styles.tabContainer}>
-              {[
-                { key: 'trending', label: 'Trending', icon: TrendingUp },
-                { key: 'people', label: 'People', icon: Users },
-                { key: 'chains', label: 'Chains', icon: Star },
-                { key: 'nearby', label: 'Nearby', icon: MapPin },
-              ].map(({ key, label, icon: Icon }) => (
+              {tabs.map(({ key, label, icon: Icon }) => (
                 <TouchableOpacity
                   key={key}
                   style={[
                     styles.tab,
                     activeTab === key && styles.activeTab
                   ]}
-                  onPress={() => switchTab(key as any)}
+                  onPress={() => switchTab(key)}
                 >
                   <Icon size={16} color={activeTab === key ? '#FF4D4D' : '#666666'} />
                   <Text
