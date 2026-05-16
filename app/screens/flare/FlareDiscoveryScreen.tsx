@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Text, Card, Button, Input, Spinner } from '@ui-kitten/components';
-import { StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert } from 'react-native';
+import { StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Search, TrendingUp, Users, MapPin, Filter, Star, Clock, UserPlus } from 'lucide-react-native';
@@ -21,6 +21,7 @@ export const FlareDiscoveryScreen = () => {
   const [searchMode, setSearchMode] = useState<'trending' | 'people' | 'chains' | 'nearby' | null>(null);
   const [searching, setSearching] = useState(false);
   const [showSearchFilters, setShowSearchFilters] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
   const [searchPromptResults, setSearchPromptResults] = useState<ChainPrompt[]>([]);
   const [searchUserResults, setSearchUserResults] = useState<UserSearchResult[]>([]);
@@ -53,16 +54,34 @@ export const FlareDiscoveryScreen = () => {
     }
   }, [currentUserId]);
 
-  const loadDiscoveryData = async () => {
+  const loadDiscoveryData = async ({ silent = false }: { silent?: boolean } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       if (!currentUserId) return;
       const data = await discoveryService.getDiscoveryData(currentUserId);
       setDiscoveryData(data);
     } catch (error) {
       console.error('Error loading discovery data:', error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const refreshDiscoveryData = async () => {
+    if (!currentUserId) {
+      return;
+    }
+
+    setIsRefreshing(true);
+    try {
+      await loadDiscoveryData({ silent: true });
+      clearSearchResults();
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -646,7 +665,17 @@ export const FlareDiscoveryScreen = () => {
         </Layout>
 
         {/* Content */}
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={refreshDiscoveryData}
+              tintColor="#FF4D4D"
+            />
+          }
+        >
           {activeTab === 'trending' && (
             <Layout>
               {isSearchResultActive('trending') ? (
