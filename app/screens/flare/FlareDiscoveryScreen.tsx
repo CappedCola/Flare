@@ -1,29 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Text, Card, Button, Input, Spinner, Avatar } from '@ui-kitten/components';
-import { StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { Layout, Text, Card, Button, Input, Spinner } from '@ui-kitten/components';
+import { StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Search, TrendingUp, Users, MapPin, Filter, Star, Clock, UserPlus } from 'lucide-react-native';
+import { useAuth } from '../../context/AuthContext';
 import { discoveryService } from '../../services/discoveryService';
-import { DiscoveryData, TrendingPrompt, SuggestedUser, PopularChain, NearbyUser, SearchFilters } from '../../types';
+import { promptService } from '../../services/promptService';
+import { sendFriendRequest } from '../../services/firebaseService';
+import { DiscoveryData, TrendingPrompt, SuggestedUser, PopularChain, NearbyUser, SearchFilters, UserSearchResult, ChainSearchResult, ChainPrompt } from '../../types';
+import { PromptCategoryType } from '../../types/flare';
 
 export const FlareDiscoveryScreen = () => {
   const navigation = useNavigation();
+  const { user } = useAuth();
   const [discoveryData, setDiscoveryData] = useState<DiscoveryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'trending' | 'people' | 'chains' | 'nearby'>('trending');
+  const [searchMode, setSearchMode] = useState<'trending' | 'people' | 'chains' | 'nearby' | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [showSearchFilters, setShowSearchFilters] = useState(false);
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
+  const [searchPromptResults, setSearchPromptResults] = useState<ChainPrompt[]>([]);
+  const [searchUserResults, setSearchUserResults] = useState<UserSearchResult[]>([]);
+  const [searchChainResults, setSearchChainResults] = useState<ChainSearchResult[]>([]);
+  const [searchNearbyResults, setSearchNearbyResults] = useState<NearbyUser[]>([]);
+  const [connectingUserId, setConnectingUserId] = useState<string | null>(null);
+  const [selectedChainCategory, setSelectedChainCategory] = useState<PromptCategoryType | undefined>(undefined);
 
-  const currentUserId = 'current-user-id'; // TODO: Get from auth context
+  const currentUserId = user?.id;
+  const chainCategoryOptions = ['all', ...Object.values(PromptCategoryType)] as const;
+  const userLevelFilters = ['beginner', 'intermediate', 'expert'] as const;
+  const responseTimeFilters = ['fast', 'medium', 'relaxed'] as const;
 
   useEffect(() => {
-    loadDiscoveryData();
-  }, []);
+    if (currentUserId) {
+      loadDiscoveryData();
+    } else {
+      setDiscoveryData(null);
+      setLoading(false);
+    }
+  }, [currentUserId]);
 
   const loadDiscoveryData = async () => {
     try {
       setLoading(true);
+      if (!currentUserId) return;
       const data = await discoveryService.getDiscoveryData(currentUserId);
       setDiscoveryData(data);
     } catch (error) {
@@ -33,29 +56,179 @@ export const FlareDiscoveryScreen = () => {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    
+  const clearSearchResultState = () => {
+    setSearchPromptResults([]);
+    setSearchUserResults([]);
+    setSearchChainResults([]);
+    setSearchNearbyResults([]);
+  };
+
+  const buildSearchFilters = (tab: 'trending' | 'people' | 'chains' | 'nearby', filters?: SearchFilters) => {
+    const baseFilters = { ...searchFilters, ...(filters || {}) };
+    if (tab === 'chains' && selectedChainCategory) {
+      baseFilters.category = selectedChainCategory;
+    }
+
+    return baseFilters;
+  };
+
+  const runSearch = async (query: string, tab: 'trending' | 'people' | 'chains' | 'nearby', filters?: SearchFilters) => {
+    const normalizedQuery = query.trim();
+    if (!discoveryData) return;
+
+    const searchContextFilters = buildSearchFilters(tab, filters);
+
+    setSearching(true);
+    setSearchMode(tab);
+    clearSearchResultState();
+
     try {
-      // Implement search based on active tab
-      console.log(`Searching for: ${searchQuery} in ${activeTab}`);
+      if (tab === 'trending') {
+        const promptResults = await promptService.searchPrompts(normalizedQuery);
+        const categoryFilteredResults = searchContextFilters.category
+          ? promptResults.filter((prompt) => prompt.category === searchContextFilters.category)
+          : promptResults;
+        setSearchPromptResults(categoryFilteredResults);
+      }
+
+      if (tab === 'people') {
+        const userResults = await discoveryService.searchUsers(normalizedQuery, searchContextFilters, 20);
+        setSearchUserResults(userResults);
+      }
+
+      if (tab === 'chains') {
+        const chainResults = await discoveryService.searchChains(normalizedQuery, searchContextFilters, 20);
+        setSearchChainResults(chainResults);
+      }
+
+      if (tab === 'nearby') {
+        const lowerQuery = normalizedQuery.toLowerCase();
+        const nearbyUsers = discoveryData.nearbyUsers.filter((nearbyUser) =>
+          nearbyUser.username.toLowerCase().includes(lowerQuery)
+        );
+        setSearchNearbyResults(nearbyUsers);
+      }
     } catch (error) {
       console.error('Error searching:', error);
+      throw error;
+    } finally {
+      setSearching(false);
     }
   };
 
-  const handleUserSuggestion = (userId: string) => {
-    console.log('View user profile:', userId);
-    // TODO: Navigate to user profile or send friend request
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchMode(null);
+      clearSearchResultState();
+      return;
+    }
+    if (!discoveryData) return;
+
+    try {
+      await runSearch(searchQuery, activeTab);
+    } catch (error) {
+      console.error('Error searching:', error);
+      Alert.alert('Search failed', 'Unable to run that search right now.');
+    }
   };
 
-  const handleJoinChain = (chainId: string) => {
+  const setChainCategoryFilter = (category: PromptCategoryType | undefined) => {
+    const nextCategory = selectedChainCategory === category ? undefined : category;
+    setSelectedChainCategory(nextCategory);
+
+    const filters = {
+      ...searchFilters,
+      category: nextCategory,
+    };
+
+    setSearchFilters(filters);
+    if (searchMode === 'chains' && searchQuery.trim()) {
+      runSearch(searchQuery, activeTab, filters).catch(() => {
+        Alert.alert('Search failed', 'Unable to refresh chain search with new filters.');
+      });
+    }
+  };
+
+  const setPeopleFilter = (filter: Partial<SearchFilters>) => {
+    const nextFilters = { ...searchFilters, ...filter };
+    Object.entries(nextFilters).forEach(([key]) => {
+      const castKey = key as keyof SearchFilters;
+      const providedValue = filter[castKey];
+      if (providedValue === undefined) {
+        delete nextFilters[castKey];
+      }
+    });
+
+    setSearchFilters(nextFilters);
+
+    if (searchMode === activeTab && searchQuery.trim()) {
+      runSearch(searchQuery, activeTab, nextFilters).catch(() => {
+        Alert.alert('Search failed', 'Unable to refresh search with new filters.');
+      });
+    }
+  };
+
+  const toggleFilterValue = <K extends keyof SearchFilters>(
+    key: K,
+    value: SearchFilters[K] extends undefined ? never : NonNullable<SearchFilters[K]>
+  ) => {
+    const normalizedValue = searchFilters[key] === value ? undefined : value;
+    const nextFilters: Partial<SearchFilters> = { [key]: normalizedValue };
+    setPeopleFilter(nextFilters);
+  };
+
+  const handleUserSuggestion = async (userId: string, username: string) => {
+    if (!currentUserId) {
+      Alert.alert('Sign in required', 'You need to be signed in to connect with people.');
+      return;
+    }
+
+    try {
+      setConnectingUserId(userId);
+      await sendFriendRequest(currentUserId, username);
+      Alert.alert('Friend request sent', `Request sent to ${username}`);
+    } catch (error) {
+      Alert.alert('Connection failed', error instanceof Error ? error.message : 'Unable to send request');
+    } finally {
+      setConnectingUserId(null);
+    }
+  };
+
+  const handleJoinChain = async (chainId: string) => {
+    if (!currentUserId) {
+      Alert.alert('Sign in required', 'You need to be signed in to join chains.');
+      return;
+    }
+
+    const canJoin = await discoveryService.canUserJoinChain(currentUserId, chainId);
+    if (!canJoin) {
+      Alert.alert('Unable to join', 'You cannot join this chain at the moment.');
+      return;
+    }
+
     navigation.navigate('FlareChainView' as never, { chainId } as never);
   };
 
   const handleUsePrompt = (promptId: string) => {
     navigation.navigate('FlareCreation' as never, { prompt: { id: promptId } } as never);
   };
+
+  const clearSearchResults = () => {
+    setSearchMode(null);
+    setSearchQuery('');
+    setSearchPromptResults([]);
+    setSearchUserResults([]);
+    setSearchChainResults([]);
+    setSearchNearbyResults([]);
+    setShowSearchFilters(false);
+  };
+
+  const switchTab = (tab: 'trending' | 'people' | 'chains' | 'nearby') => {
+    setActiveTab(tab);
+    clearSearchResults();
+  };
+
+  const isSearchResultActive = (tab: 'trending' | 'people' | 'chains' | 'nearby') => searchMode === tab;
 
   const formatDistance = (distance: number): string => {
     if (distance < 1) return `${Math.round(distance * 1000)}m away`;
@@ -75,6 +248,30 @@ export const FlareDiscoveryScreen = () => {
       default: return 'Suggested';
     }
   };
+
+  const renderPromptSearchResult = ({ item }: { item: ChainPrompt }) => (
+    <Card style={styles.searchResultCard}>
+      <TouchableOpacity onPress={() => handleUsePrompt(item.id)}>
+        <Layout style={styles.promptHeader}>
+          <Text style={styles.promptEmoji}>{item.emoji || '💬'}</Text>
+          <Layout style={styles.promptInfo}>
+            <Text category="s2" style={styles.promptTitle}>
+              {item.title}
+            </Text>
+            <Text category="c1" appearance="hint" numberOfLines={2}>
+              {item.description}
+            </Text>
+          </Layout>
+        </Layout>
+
+        <Layout style={styles.promptStats}>
+          <Text category="c1" appearance="hint">
+            {item.popularity} people
+          </Text>
+        </Layout>
+      </TouchableOpacity>
+    </Card>
+  );
 
   const renderTrendingPrompt = ({ item }: { item: TrendingPrompt }) => (
     <Card style={styles.trendingCard}>
@@ -136,10 +333,11 @@ export const FlareDiscoveryScreen = () => {
         <Button
           size="small"
           appearance="outline"
-          onPress={() => handleUserSuggestion(item.userId)}
+          onPress={() => handleUserSuggestion(item.userId, item.username)}
+          disabled={connectingUserId === item.userId}
           accessoryLeft={(props) => <UserPlus {...props} size={16} />}
         >
-          Connect
+          {connectingUserId === item.userId ? 'Sending' : 'Connect'}
         </Button>
       </Layout>
     </Card>
@@ -233,9 +431,10 @@ export const FlareDiscoveryScreen = () => {
         <Button
           size="tiny"
           appearance="ghost"
-          onPress={() => handleUserSuggestion(item.userId)}
+          onPress={() => handleUserSuggestion(item.userId, item.username)}
+          disabled={connectingUserId === item.userId}
         >
-          Connect
+          {connectingUserId === item.userId ? 'Sending' : 'Connect'}
         </Button>
       </Layout>
     </Card>
@@ -273,16 +472,139 @@ export const FlareDiscoveryScreen = () => {
             style={styles.searchInput}
             placeholder="Search prompts, people, or chains..."
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={(value) => {
+              if (!value.trim()) {
+                setSearchMode(null);
+                clearSearchResultState();
+              }
+              setSearchQuery(value);
+            }}
             onSubmitEditing={handleSearch}
             accessoryLeft={(props) => <Search {...props} size={20} />}
             accessoryRight={(props) => (
-              <TouchableOpacity onPress={() => console.log('Open filters')}>
+              <TouchableOpacity onPress={() => setShowSearchFilters((prev) => !prev)}>
                 <Filter {...props} size={20} />
               </TouchableOpacity>
             )}
           />
+          {searching ? <Text category="c1" appearance="hint">Searching…</Text> : null}
         </Layout>
+
+        {showSearchFilters && activeTab !== 'nearby' && (
+          <Layout style={styles.filterPanel}>
+            {activeTab === 'chains' && (
+              <Layout style={styles.filterSection}>
+                <Text category="s2" style={styles.filterLabel}>
+                  Category
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {chainCategoryOptions.map((category) => {
+                    const isActive =
+                      category === 'all'
+                        ? selectedChainCategory === undefined
+                        : selectedChainCategory === category;
+                    return (
+                      <TouchableOpacity
+                        key={category}
+                        style={[styles.filterChip, isActive && styles.filterChipActive]}
+                        onPress={() =>
+                          setChainCategoryFilter(
+                            category === 'all' ? undefined : category
+                          )
+                        }
+                      >
+                        <Text
+                          category="c2"
+                          style={[styles.filterChipText, isActive && styles.filterChipTextActive]}
+                        >
+                          {category}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </Layout>
+            )}
+
+            {activeTab === 'trending' && (
+              <Layout style={styles.filterSection}>
+                <Text category="s2" style={styles.filterLabel}>
+                  Filter by category
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {chainCategoryOptions.map((category) => {
+                    const isActive =
+                      category === 'all'
+                        ? searchFilters.category === undefined
+                        : searchFilters.category === category;
+                    return (
+                      <TouchableOpacity
+                        key={`trend-${category}`}
+                        style={[styles.filterChip, isActive && styles.filterChipActive]}
+                        onPress={() =>
+                          setPeopleFilter({
+                            category: category === 'all' ? undefined : category,
+                          })
+                        }
+                      >
+                        <Text
+                          category="c2"
+                          style={[styles.filterChipText, isActive && styles.filterChipTextActive]}
+                        >
+                          {category}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </Layout>
+            )}
+
+            {activeTab === 'people' && (
+              <Layout style={styles.filterSection}>
+                <Text category="s2" style={styles.filterLabel}>
+                  People filters
+                </Text>
+                <Layout style={styles.filterRow}>
+                  {userLevelFilters.map((level) => {
+                    const isActive = searchFilters.userLevel === level;
+                    return (
+                      <TouchableOpacity
+                        key={`level-${level}`}
+                        style={[styles.filterChip, isActive && styles.filterChipActive]}
+                        onPress={() => toggleFilterValue('userLevel', level)}
+                      >
+                        <Text
+                          category="c2"
+                          style={[styles.filterChipText, isActive && styles.filterChipTextActive]}
+                        >
+                          {level}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {responseTimeFilters.map((time) => {
+                    const isActive = searchFilters.responseTime === time;
+                    return (
+                      <TouchableOpacity
+                        key={`response-${time}`}
+                        style={[styles.filterChip, isActive && styles.filterChipActive]}
+                        onPress={() => toggleFilterValue('responseTime', time)}
+                      >
+                        <Text
+                          category="c2"
+                          style={[styles.filterChipText, isActive && styles.filterChipTextActive]}
+                        >
+                          {time}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </Layout>
+              </Layout>
+            )}
+          </Layout>
+        )}
 
         {/* Tab Navigation */}
         <Layout style={styles.tabSection}>
@@ -300,7 +622,7 @@ export const FlareDiscoveryScreen = () => {
                     styles.tab,
                     activeTab === key && styles.activeTab
                   ]}
-                  onPress={() => setActiveTab(key as any)}
+                  onPress={() => switchTab(key as any)}
                 >
                   <Icon size={16} color={activeTab === key ? '#FF4D4D' : '#666666'} />
                   <Text
@@ -320,44 +642,191 @@ export const FlareDiscoveryScreen = () => {
 
         {/* Content */}
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {activeTab === 'trending' && discoveryData?.trendingPrompts && (
-            <FlatList
-              data={discoveryData.trendingPrompts}
-              renderItem={renderTrendingPrompt}
-              keyExtractor={(item) => item.prompt.id}
-              scrollEnabled={false}
-              ItemSeparatorComponent={() => <Layout style={styles.separator} />}
-            />
+          {activeTab === 'trending' && (
+            <Layout>
+              {isSearchResultActive('trending') ? (
+                <>
+                  {searchPromptResults.length > 0 ? (
+                    <FlatList
+                      data={searchPromptResults}
+                      renderItem={renderPromptSearchResult}
+                      keyExtractor={(item) => item.id}
+                      scrollEnabled={false}
+                      ItemSeparatorComponent={() => <Layout style={styles.separator} />}
+                    />
+                  ) : (
+                    <Text category="s1" appearance="hint" style={styles.emptyText}>
+                      No matching prompts
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <FlatList
+                  data={discoveryData?.trendingPrompts || []}
+                  renderItem={renderTrendingPrompt}
+                  keyExtractor={(item) => item.prompt.id}
+                  scrollEnabled={false}
+                  ItemSeparatorComponent={() => <Layout style={styles.separator} />}
+                />
+              )}
+            </Layout>
           )}
 
-          {activeTab === 'people' && discoveryData?.suggestedUsers && (
-            <FlatList
-              data={discoveryData.suggestedUsers}
-              renderItem={renderSuggestedUser}
-              keyExtractor={(item) => item.userId}
-              scrollEnabled={false}
-              ItemSeparatorComponent={() => <Layout style={styles.separator} />}
-            />
+          {activeTab === 'people' && (
+            <Layout>
+              {isSearchResultActive('people') ? (
+                <>
+                  {searchUserResults.length > 0 ? (
+                    <FlatList
+                      data={searchUserResults}
+                      renderItem={({ item }) => (
+                        <Card style={styles.userCard}>
+                          <Layout style={styles.userHeader}>
+                            <Layout style={styles.userInfo}>
+                              <Layout style={styles.userAvatar}>
+                                <Text style={styles.userAvatarText}>{item.avatar || '👤'}</Text>
+                              </Layout>
+                              <Layout style={styles.userDetails}>
+                                <Text category="s2" style={styles.username}>
+                                  {item.username}
+                                </Text>
+                                <Text category="c1" appearance="hint">
+                                  {item.statistics.chainsCompleted} chains completed
+                                </Text>
+                                <Text category="c2" appearance="hint">
+                                  {item.isOnline ? 'Online' : 'Offline'}
+                                </Text>
+                              </Layout>
+                            </Layout>
+                            
+                            <Button
+                              size="small"
+                              appearance="outline"
+                              onPress={() => handleUserSuggestion(item.userId, item.username)}
+                              disabled={connectingUserId === item.userId}
+                              accessoryLeft={(props) => <UserPlus {...props} size={16} />}
+                            >
+                              {connectingUserId === item.userId ? 'Sending' : 'Connect'}
+                            </Button>
+                          </Layout>
+                        </Card>
+                      )}
+                      keyExtractor={(item) => item.userId}
+                      scrollEnabled={false}
+                      ItemSeparatorComponent={() => <Layout style={styles.separator} />}
+                    />
+                  ) : (
+                    <Text category="s1" appearance="hint" style={styles.emptyText}>
+                      No matching users
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <FlatList
+                  data={discoveryData?.suggestedUsers || []}
+                  renderItem={renderSuggestedUser}
+                  keyExtractor={(item) => item.userId}
+                  scrollEnabled={false}
+                  ItemSeparatorComponent={() => <Layout style={styles.separator} />}
+                />
+              )}
+            </Layout>
           )}
 
-          {activeTab === 'chains' && discoveryData?.popularChains && (
-            <FlatList
-              data={discoveryData.popularChains}
-              renderItem={renderPopularChain}
-              keyExtractor={(item) => item.chainId}
-              scrollEnabled={false}
-              ItemSeparatorComponent={() => <Layout style={styles.separator} />}
-            />
+          {activeTab === 'chains' && (
+            <Layout>
+              {isSearchResultActive('chains') ? (
+                <>
+                      {searchChainResults.length > 0 ? (
+                      <FlatList
+                      data={searchChainResults}
+                      renderItem={({ item }) => (
+                        <Card style={styles.chainCard}>
+                          <Layout style={styles.chainHeader}>
+                            <Layout style={styles.chainInfo}>
+                              <Text style={styles.chainEmoji}>{item.prompt.emoji}</Text>
+                              <Layout style={styles.chainDetails}>
+                                <Text category="s2" style={styles.chainTitle}>
+                                  {item.prompt.title}
+                                </Text>
+                                <Text category="c1" appearance="hint">
+                                  by {item.creator}
+                                </Text>
+                                <Text category="c1" appearance="hint">
+                                  {item.prompt.description}
+                                </Text>
+                                <Text category="c2" appearance="hint">
+                                  {item.spotsAvailable} spots left
+                                </Text>
+                                {!!item.tags.length && (
+                                  <Text category="c2" appearance="hint">
+                                    {item.tags.join(', ')}
+                                  </Text>
+                                )}
+                              </Layout>
+                            </Layout>
+                          </Layout>
+
+                          <Button
+                            size="small"
+                            status={item.status === 'active' ? 'primary' : 'basic'}
+                            disabled={item.status !== 'active'}
+                            onPress={() => handleJoinChain(item.chainId)}
+                          >
+                            {item.status === 'active' ? 'Join Chain' : 'Join request unavailable'}
+                          </Button>
+                        </Card>
+                      )}
+                      keyExtractor={(item) => item.chainId}
+                      scrollEnabled={false}
+                      ItemSeparatorComponent={() => <Layout style={styles.separator} />}
+                    />
+                  ) : (
+                    <Text category="s1" appearance="hint" style={styles.emptyText}>
+                      No matching chains
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <FlatList
+                  data={discoveryData?.popularChains || []}
+                  renderItem={renderPopularChain}
+                  keyExtractor={(item) => item.chainId}
+                  scrollEnabled={false}
+                  ItemSeparatorComponent={() => <Layout style={styles.separator} />}
+                />
+              )}
+            </Layout>
           )}
 
-          {activeTab === 'nearby' && discoveryData?.nearbyUsers && (
-            <FlatList
-              data={discoveryData.nearbyUsers}
-              renderItem={renderNearbyUser}
-              keyExtractor={(item) => item.userId}
-              scrollEnabled={false}
-              ItemSeparatorComponent={() => <Layout style={styles.separator} />}
-            />
+          {activeTab === 'nearby' && (
+            <Layout>
+              {isSearchResultActive('nearby') ? (
+                <>
+                  {searchNearbyResults.length > 0 ? (
+                    <FlatList
+                      data={searchNearbyResults}
+                      renderItem={renderNearbyUser}
+                      keyExtractor={(item) => item.userId}
+                      scrollEnabled={false}
+                      ItemSeparatorComponent={() => <Layout style={styles.separator} />}
+                    />
+                  ) : (
+                    <Text category="s1" appearance="hint" style={styles.emptyText}>
+                      No matching users nearby
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <FlatList
+                  data={discoveryData?.nearbyUsers || []}
+                  renderItem={renderNearbyUser}
+                  keyExtractor={(item) => item.userId}
+                  scrollEnabled={false}
+                  ItemSeparatorComponent={() => <Layout style={styles.separator} />}
+                />
+              )}
+            </Layout>
           )}
         </ScrollView>
       </Layout>
@@ -393,6 +862,39 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     backgroundColor: '#F5F5F5',
+  },
+  filterPanel: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  filterSection: {
+    gap: 8,
+  },
+  filterLabel: {
+    color: '#444444',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChip: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    backgroundColor: '#F5F5F5',
+  },
+  filterChipActive: {
+    backgroundColor: '#FF4D4D',
+  },
+  filterChipText: {
+    color: '#444444',
+    textTransform: 'capitalize',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
   },
   tabSection: {
     paddingBottom: 16,
@@ -463,6 +965,13 @@ const styles = StyleSheet.create({
   },
   promptStats: {
     marginTop: 8,
+  },
+  searchResultCard: {
+    padding: 16,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 24,
   },
   userCard: {
     padding: 16,
