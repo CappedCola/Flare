@@ -624,6 +624,17 @@ export interface ChainPrompt {
   createdAt: Date;
 }
 
+export interface CustomPromptData extends ChainPrompt {
+  createdBy: string;
+  createdByUsername: string;
+  moderationStatus: 'pending' | 'approved' | 'rejected';
+  reports: number;
+  averageRating: number;
+  totalRatings: number;
+  usageCount: number;
+  tags: string[];
+}
+
 export interface DailyPrompt extends ChainPrompt {
   dayOfWeek: number; // 0-6 (Sunday-Saturday)
   isSpecial: boolean;
@@ -692,7 +703,14 @@ export interface PromptService {
   getDailyPrompts(): Promise<DailyPrompt[]>;
   getPromptsByCategory(category: PromptCategoryType): Promise<ChainPrompt[]>;
   getTrendingPrompts(): Promise<ChainPrompt[]>;
-  createCustomPrompt(title: string, description: string, userId: string): Promise<ChainPrompt>;
+  createCustomPrompt(
+    title: string,
+    description: string,
+    userId: string,
+    username: string,
+    category?: PromptCategoryType,
+    tags?: string[],
+  ): Promise<CustomPromptData>;
   getPromptCategories(): Promise<PromptCategory[]>;
 }
 
@@ -728,8 +746,16 @@ export interface UsePromptsReturn {
   trendingPrompts: ChainPrompt[];
   loading: boolean;
   error: string | null;
-  createCustomPrompt: (title: string, description: string) => Promise<ChainPrompt>;
+  createCustomPrompt: (
+    title: string,
+    description: string,
+    category?: PromptCategoryType,
+    tags?: string[]
+  ) => Promise<CustomPromptData>;
   refreshPrompts: () => Promise<void>;
+  getPromptsByCategory: (category: PromptCategoryType) => Promise<ChainPrompt[]>;
+  getTodaysPrompt: () => Promise<DailyPrompt | null>;
+  searchPrompts: (query: string) => Promise<ChainPrompt[]>;
 }
 
 export const POST_VISIBILITY_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds

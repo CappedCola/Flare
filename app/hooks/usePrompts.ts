@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ChainPrompt, DailyPrompt, PromptCategory, UsePromptsReturn } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { ChainPrompt, DailyPrompt, PromptCategory, UsePromptsReturn, CustomPromptData } from '../types';
 import { PromptCategoryType } from '../types/flare';
 import { promptService } from '../services/promptService';
 
 export const usePrompts = (): UsePromptsReturn => {
+  const { user } = useAuth();
   const [dailyPrompts, setDailyPrompts] = useState<DailyPrompt[]>([]);
   const [categories, setCategories] = useState<PromptCategory[]>([]);
   const [trendingPrompts, setTrendingPrompts] = useState<ChainPrompt[]>([]);
@@ -33,12 +35,27 @@ export const usePrompts = (): UsePromptsReturn => {
     }
   };
 
-  const createCustomPrompt = async (title: string, description: string): Promise<ChainPrompt> => {
+  const createCustomPrompt = async (
+    title: string,
+    description: string,
+    category?: PromptCategoryType,
+    tags: string[] = []
+  ): Promise<CustomPromptData> => {
     try {
-      // TODO: Get actual user ID from auth context
-      const userId = 'current-user-id';
-      const newPrompt = await promptService.createCustomPrompt(title, description, userId);
-      
+      if (!user?.id) {
+        throw new Error('Please sign in to create a custom prompt');
+      }
+
+      const username = user.username || user.displayName || 'Anonymous';
+      const newPrompt = await promptService.createCustomPrompt(
+        title,
+        description,
+        user.id,
+        username,
+        category,
+        tags,
+      );
+
       // Add to trending prompts temporarily
       setTrendingPrompts(prev => [newPrompt, ...prev]);
       
@@ -98,9 +115,5 @@ export const usePrompts = (): UsePromptsReturn => {
     getPromptsByCategory,
     getTodaysPrompt,
     searchPrompts,
-  } as UsePromptsReturn & {
-    getPromptsByCategory: (category: PromptCategoryType) => Promise<ChainPrompt[]>;
-    getTodaysPrompt: () => Promise<DailyPrompt | null>;
-    searchPrompts: (query: string) => Promise<ChainPrompt[]>;
   };
 };

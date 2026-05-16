@@ -1,4 +1,4 @@
-import { ChainPrompt, DailyPrompt, PromptCategory, User } from '../types';
+import { ChainPrompt, CustomPromptData, DailyPrompt, PromptCategory } from '../types';
 import { PromptType, PromptCategoryType } from '../types/flare';
 import { firestore } from '../config/firebase';
 import { 
@@ -42,17 +42,6 @@ export interface PromptModerationStatus {
   reason?: string;
   moderatedBy?: string;
   moderatedAt: Date;
-}
-
-export interface CustomPromptData extends ChainPrompt {
-  createdBy: string;
-  createdByUsername: string;
-  moderationStatus: 'pending' | 'approved' | 'rejected';
-  reports: number;
-  averageRating: number;
-  totalRatings: number;
-  usageCount: number;
-  tags: string[];
 }
 
 // Daily prompt themes for each day of the week
