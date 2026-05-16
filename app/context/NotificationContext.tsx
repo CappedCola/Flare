@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { PersonalPost, NotificationTypeEnum } from '../types';
 import { subscribeToPersonalPosts } from '../services/firebaseService';
@@ -13,7 +13,7 @@ interface NotificationContextType {
   markAsViewed: (postId: string) => void;
   markAsDismissed: (postId: string) => void;
   // Push notification methods
-  initializePushNotifications: () => Promise<void>;
+  initializePushNotifications: () => Promise<(() => void) | undefined>;
   handleNotificationReceived: (notification: Notifications.Notification) => void;
   handleNotificationResponse: (response: Notifications.NotificationResponse) => void;
 }
@@ -27,7 +27,7 @@ interface NotificationProviderProps {
 export const NotificationProvider = ({ children }: NotificationProviderProps) => {
   const { user } = useAuth();
   const [currentNotification, setCurrentNotification] = useState<PersonalPost | null>(null);
-  const [processedPostIds, setProcessedPostIds] = useState<Set<string>>(new Set());
+  const processedPostIds = useRef<Set<string>>(new Set());
 
   const notificationService = NotificationService.getInstance();
   const preferencesService = NotificationPreferencesService.getInstance();
@@ -37,6 +37,7 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
     
     // Feature flag - disable personal posts subscription temporarily to avoid permission errors
     const enablePersonalPosts = false; // Set to true when personal posts feature is ready
+    processedPostIds.current = new Set();
     
     if (!enablePersonalPosts) {
       if (__DEV__) console.log('Personal posts subscription disabled');
@@ -49,16 +50,19 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
       (personalPosts) => {
         // Only show notification for new posts that haven't been processed
         const newPosts = personalPosts.filter(post => 
-          post.status === 'sent' && !processedPostIds.has(post.id)
+          post.status === 'sent' && !processedPostIds.current.has(post.id)
         );
         
         if (newPosts.length > 0) {
           // Show the most recent post
           const latestPost = newPosts[0];
+          if (!latestPost) {
+            return;
+          }
           setCurrentNotification(latestPost);
           
           // Mark this post as processed
-          setProcessedPostIds(prev => new Set([...prev, latestPost.id]));
+          processedPostIds.current = new Set([...processedPostIds.current, latestPost.id]);
         }
       },
       (error) => {
@@ -72,7 +76,7 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [user?.id, processedPostIds]);
+  }, [user?.id]);
   
   const showNotification = (post: PersonalPost) => {
     setCurrentNotification(post);
@@ -95,7 +99,7 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
   };
 
   // Push notification initialization
-  const initializePushNotifications = async () => {
+  const initializePushNotifications = async (): Promise<(() => void) | undefined> => {
     try {
       if (!user?.id) return;
 
@@ -120,9 +124,10 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
         receivedListener.remove();
         responseListener.remove();
       };
-    } catch (error) {
+  } catch (error) {
       console.error('Failed to initialize push notifications:', error);
     }
+    return;
   };
 
   // Handle notification received while app is running
@@ -186,9 +191,25 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
 
   // Initialize push notifications when user is available
   useEffect(() => {
+    let isDisposed = false;
+    let cleanup: (() => void) | undefined;
+
     if (user?.id) {
-      initializePushNotifications();
+      initializePushNotifications().then((teardown) => {
+        if (isDisposed) {
+          teardown?.();
+          return;
+        }
+        if (teardown) {
+          cleanup = teardown;
+        }
+      });
     }
+
+    return () => {
+      isDisposed = true;
+      cleanup?.();
+    };
   }, [user?.id]);
   
   const value: NotificationContextType = {
