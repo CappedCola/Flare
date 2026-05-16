@@ -284,20 +284,38 @@ export const promptService = {
     category?: PromptCategoryType,
     tags: string[] = []
   ): Promise<CustomPromptData> {
+    const normalizedTitle = title.trim();
+    const normalizedDescription = description.trim();
+
+    if (!normalizedTitle || !normalizedDescription) {
+      throw new Error('Title and description are required');
+    }
+
+    if (!userId.trim()) {
+      throw new Error('User ID is required');
+    }
+
+    const normalizedTags = [...new Set(
+      tags
+        .map((tag) => tag.trim().toLowerCase())
+        .filter((tag) => Boolean(tag) && tag.length <= 24)
+        .slice(0, 8),
+    )];
+
     const customPrompt: CustomPromptData = {
       id: `custom-${Date.now()}-${userId}`,
       type: PromptType.CUSTOM,
       category,
-      title: title.trim(),
-      description: description.trim(),
+      title: normalizedTitle,
+      description: normalizedDescription,
       createdBy: userId,
-      createdByUsername: username,
+      createdByUsername: username.trim() || 'Anonymous',
       moderationStatus: 'pending',
       reports: 0,
       averageRating: 0,
       totalRatings: 0,
       usageCount: 0,
-      tags: tags.map(tag => tag.toLowerCase().trim()),
+      tags: normalizedTags,
       isActive: false, // Inactive until moderated
       popularity: 0,
       createdAt: new Date(),
@@ -638,23 +656,35 @@ export const promptService = {
 
   // Search prompts by title or description
   async searchPrompts(query: string): Promise<ChainPrompt[]> {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return [];
+    }
+
+    const seenPromptIds = new Set<string>();
     const allPrompts: ChainPrompt[] = [];
+
+    const addPrompt = (prompt: ChainPrompt) => {
+      if (!seenPromptIds.has(prompt.id)) {
+        seenPromptIds.add(prompt.id);
+        allPrompts.push(prompt);
+      }
+    };
     
     // Search daily prompts
     const dailyPrompts = await this.getWeeklyPrompts();
-    allPrompts.push(...dailyPrompts);
+    dailyPrompts.forEach(addPrompt);
     
     // Search category prompts
     for (const category of Object.values(PromptCategoryType)) {
       const categoryPrompts = await this.getPromptsByCategory(category);
-      allPrompts.push(...categoryPrompts);
+      categoryPrompts.forEach(addPrompt);
     }
     
     // Filter by query
-    const lowercaseQuery = query.toLowerCase();
     return allPrompts.filter(prompt => 
-      prompt.title.toLowerCase().includes(lowercaseQuery) ||
-      prompt.description.toLowerCase().includes(lowercaseQuery)
+      prompt.title.toLowerCase().includes(normalizedQuery) ||
+      prompt.description.toLowerCase().includes(normalizedQuery)
     );
   },
 };
