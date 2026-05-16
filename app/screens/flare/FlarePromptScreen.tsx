@@ -13,7 +13,14 @@ import { promptService } from '../../services/promptService';
 export const FlarePromptScreen = () => {
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { categories, trendingPrompts, loading, error, getTodaysPrompt, createCustomPrompt } = usePrompts();
+  const {
+    categories,
+    trendingPrompts,
+    loading,
+    error,
+    getTodaysPrompt,
+    createCustomPrompt,
+  } = usePrompts();
   const [todaysPrompt, setTodaysPrompt] = useState<DailyPrompt | null>(null);
   const [activeTab, setActiveTab] = useState<'trending' | 'categories' | 'favorites' | 'custom'>('trending');
   const [favoritePrompts, setFavoritePrompts] = useState<ChainPrompt[]>([]);
@@ -29,6 +36,18 @@ export const FlarePromptScreen = () => {
   const [searchMode, setSearchMode] = useState(false);
   const [searchTitle, setSearchTitle] = useState('Search Results');
   const [isSearching, setIsSearching] = useState(false);
+  const [newPromptTagsInput, setNewPromptTagsInput] = useState('');
+
+  const tabs: Array<{
+    key: 'trending' | 'categories' | 'favorites' | 'custom';
+    label: string;
+    icon: typeof Calendar;
+  }> = [
+    { key: 'trending', label: 'Recommended', icon: TrendingUp },
+    { key: 'categories', label: 'Categories', icon: Calendar },
+    { key: 'favorites', label: 'Favorites', icon: Heart },
+    { key: 'custom', label: 'Community', icon: Plus },
+  ];
 
   const currentUserId = user?.id;
 
@@ -127,13 +146,14 @@ export const FlarePromptScreen = () => {
         newPromptTitle,
         newPromptDescription,
         selectedCategory,
-        [],
+        parseTagsInput(newPromptTagsInput),
       );
       
       setCustomPrompts(prev => [customPrompt, ...prev]);
       setShowCreateModal(false);
       setNewPromptTitle('');
       setNewPromptDescription('');
+      setNewPromptTagsInput('');
       setSelectedCategory(undefined);
       
       Alert.alert(
@@ -166,6 +186,13 @@ export const FlarePromptScreen = () => {
       setIsSearching(false);
     }
   };
+
+  const parseTagsInput = (value: string): string[] =>
+    value
+      .split(',')
+      .map((tag) => tag.trim().toLowerCase())
+      .filter((tag) => tag.length > 0)
+      .slice(0, 8);
 
   const handleBrowseCategory = async (categoryType: PromptCategoryType) => {
     try {
@@ -419,19 +446,14 @@ export const FlarePromptScreen = () => {
           <Layout style={styles.tabSection}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <Layout style={styles.tabContainer}>
-                {[
-                  { key: 'trending', label: 'Recommended', icon: TrendingUp },
-                  { key: 'categories', label: 'Categories', icon: Calendar },
-                  { key: 'favorites', label: 'Favorites', icon: Heart },
-                  { key: 'custom', label: 'Community', icon: Plus },
-                ].map(({ key, label, icon: Icon }) => (
+                {tabs.map(({ key, label, icon: Icon }) => (
                   <TouchableOpacity
                     key={key}
                     style={[
                       styles.tab,
                       activeTab === key && styles.activeTab
                     ]}
-                    onPress={() => setActiveTab(key as any)}
+                    onPress={() => setActiveTab(key)}
                   >
                     <Icon size={16} color={activeTab === key ? '#FF4D4D' : '#666666'} />
                     <Text
@@ -712,6 +734,15 @@ export const FlarePromptScreen = () => {
                   multiline
                   numberOfLines={3}
                   maxLength={200}
+                />
+
+                <Input
+                  style={styles.modalInput}
+                  label="Tags (optional)"
+                  placeholder="Add up to 8 tags separated by commas"
+                  value={newPromptTagsInput}
+                  onChangeText={setNewPromptTagsInput}
+                  maxLength={120}
                 />
                 
                 <Text category="label" style={styles.categoryLabel}>Category (Optional)</Text>
