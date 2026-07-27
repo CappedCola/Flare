@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { ChainturnsPanel } from '../../app/substrate/chainTurns/Panel';
 import { handleChainturns } from '../../app/substrate/chainTurns/handler';
 import { ChainturnsPersistence } from '../../app/substrate/chainTurns/persistence';
@@ -46,7 +46,7 @@ describe('chain turns', () => {
     const selected: string[] = [];
     render(<ChainturnsPanel service={service} onSelect={(item) => selected.push(item.id)} />);
     await waitFor(() => expect(screen.getByText('1 chain turns')).toBeTruthy());
-    act(() => { fireEvent.press(screen.getByText('visible')); });
+    fireEvent.press(screen.getByText('visible'));
     expect(selected).toEqual([record.id]);
     fireEvent.press(screen.getByText('Refresh'));
     expect(screen.getByText('1 chain turns')).toBeTruthy();

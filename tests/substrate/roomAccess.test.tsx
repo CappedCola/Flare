@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { RoomaccessPanel } from '../../app/substrate/roomAccess/Panel';
 import { handleRoomaccess } from '../../app/substrate/roomAccess/handler';
 import { RoomaccessPersistence } from '../../app/substrate/roomAccess/persistence';
@@ -46,7 +46,7 @@ describe('room access grants', () => {
     const selected: string[] = [];
     render(<RoomaccessPanel service={service} onSelect={(item) => selected.push(item.id)} />);
     await waitFor(() => expect(screen.getByText('1 room access grants')).toBeTruthy());
-    act(() => { fireEvent.press(screen.getByText('visible')); });
+    fireEvent.press(screen.getByText('visible'));
     expect(selected).toEqual([record.id]);
     fireEvent.press(screen.getByText('Refresh'));
     expect(screen.getByText('1 room access grants')).toBeTruthy();

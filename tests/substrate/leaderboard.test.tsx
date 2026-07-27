@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { LeaderboardPanel } from '../../app/substrate/leaderboard/Panel';
 import { handleLeaderboard } from '../../app/substrate/leaderboard/handler';
 import { LeaderboardPersistence } from '../../app/substrate/leaderboard/persistence';
@@ -46,7 +46,7 @@ describe('leaderboard entries', () => {
     const selected: string[] = [];
     render(<LeaderboardPanel service={service} onSelect={(item) => selected.push(item.id)} />);
     await waitFor(() => expect(screen.getByText('1 leaderboard entries')).toBeTruthy());
-    act(() => { fireEvent.press(screen.getByText('visible')); });
+    fireEvent.press(screen.getByText('visible'));
     expect(selected).toEqual([record.id]);
     fireEvent.press(screen.getByText('Refresh'));
     expect(screen.getByText('1 leaderboard entries')).toBeTruthy();

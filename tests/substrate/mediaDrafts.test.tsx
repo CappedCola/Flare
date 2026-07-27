@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { MediadraftsPanel } from '../../app/substrate/mediaDrafts/Panel';
 import { handleMediadrafts } from '../../app/substrate/mediaDrafts/handler';
 import { MediadraftsPersistence } from '../../app/substrate/mediaDrafts/persistence';
@@ -46,7 +46,7 @@ describe('media drafts', () => {
     const selected: string[] = [];
     render(<MediadraftsPanel service={service} onSelect={(item) => selected.push(item.id)} />);
     await waitFor(() => expect(screen.getByText('1 media drafts')).toBeTruthy());
-    act(() => { fireEvent.press(screen.getByText('visible')); });
+    fireEvent.press(screen.getByText('visible'));
     expect(selected).toEqual([record.id]);
     fireEvent.press(screen.getByText('Refresh'));
     expect(screen.getByText('1 media drafts')).toBeTruthy();

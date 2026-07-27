@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { NotificationprefsPanel } from '../../app/substrate/notificationPrefs/Panel';
 import { handleNotificationprefs } from '../../app/substrate/notificationPrefs/handler';
 import { NotificationprefsPersistence } from '../../app/substrate/notificationPrefs/persistence';
@@ -46,7 +46,7 @@ describe('notification preferences', () => {
     const selected: string[] = [];
     render(<NotificationprefsPanel service={service} onSelect={(item) => selected.push(item.id)} />);
     await waitFor(() => expect(screen.getByText('1 notification preferences')).toBeTruthy());
-    act(() => { fireEvent.press(screen.getByText('visible')); });
+    fireEvent.press(screen.getByText('visible'));
     expect(selected).toEqual([record.id]);
     fireEvent.press(screen.getByText('Refresh'));
     expect(screen.getByText('1 notification preferences')).toBeTruthy();

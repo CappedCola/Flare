@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { ProfilestatsPanel } from '../../app/substrate/profileStats/Panel';
 import { handleProfilestats } from '../../app/substrate/profileStats/handler';
 import { ProfilestatsPersistence } from '../../app/substrate/profileStats/persistence';
@@ -46,7 +46,7 @@ describe('profile stats', () => {
     const selected: string[] = [];
     render(<ProfilestatsPanel service={service} onSelect={(item) => selected.push(item.id)} />);
     await waitFor(() => expect(screen.getByText('1 profile stats')).toBeTruthy());
-    act(() => { fireEvent.press(screen.getByText('visible')); });
+    fireEvent.press(screen.getByText('visible'));
     expect(selected).toEqual([record.id]);
     fireEvent.press(screen.getByText('Refresh'));
     expect(screen.getByText('1 profile stats')).toBeTruthy();

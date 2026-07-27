@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { OfflineoutboxPanel } from '../../app/substrate/offlineOutbox/Panel';
 import { handleOfflineoutbox } from '../../app/substrate/offlineOutbox/handler';
 import { OfflineoutboxPersistence } from '../../app/substrate/offlineOutbox/persistence';
@@ -46,7 +46,7 @@ describe('offline outbox items', () => {
     const selected: string[] = [];
     render(<OfflineoutboxPanel service={service} onSelect={(item) => selected.push(item.id)} />);
     await waitFor(() => expect(screen.getByText('1 offline outbox items')).toBeTruthy());
-    act(() => { fireEvent.press(screen.getByText('visible')); });
+    fireEvent.press(screen.getByText('visible'));
     expect(selected).toEqual([record.id]);
     fireEvent.press(screen.getByText('Refresh'));
     expect(screen.getByText('1 offline outbox items')).toBeTruthy();

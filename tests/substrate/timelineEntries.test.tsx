@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { TimelineentriesPanel } from '../../app/substrate/timelineEntries/Panel';
 import { handleTimelineentries } from '../../app/substrate/timelineEntries/handler';
 import { TimelineentriesPersistence } from '../../app/substrate/timelineEntries/persistence';
@@ -46,7 +46,7 @@ describe('timeline entries', () => {
     const selected: string[] = [];
     render(<TimelineentriesPanel service={service} onSelect={(item) => selected.push(item.id)} />);
     await waitFor(() => expect(screen.getByText('1 timeline entries')).toBeTruthy());
-    act(() => { fireEvent.press(screen.getByText('visible')); });
+    fireEvent.press(screen.getByText('visible'));
     expect(selected).toEqual([record.id]);
     fireEvent.press(screen.getByText('Refresh'));
     expect(screen.getByText('1 timeline entries')).toBeTruthy();

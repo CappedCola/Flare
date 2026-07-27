@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { PromptqueuePanel } from '../../app/substrate/promptQueue/Panel';
 import { handlePromptqueue } from '../../app/substrate/promptQueue/handler';
 import { PromptqueuePersistence } from '../../app/substrate/promptQueue/persistence';
@@ -46,7 +46,7 @@ describe('prompt queue', () => {
     const selected: string[] = [];
     render(<PromptqueuePanel service={service} onSelect={(item) => selected.push(item.id)} />);
     await waitFor(() => expect(screen.getByText('1 prompt queue')).toBeTruthy());
-    act(() => { fireEvent.press(screen.getByText('visible')); });
+    fireEvent.press(screen.getByText('visible'));
     expect(selected).toEqual([record.id]);
     fireEvent.press(screen.getByText('Refresh'));
     expect(screen.getByText('1 prompt queue')).toBeTruthy();

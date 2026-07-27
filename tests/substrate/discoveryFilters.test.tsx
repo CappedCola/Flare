@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { DiscoveryfiltersPanel } from '../../app/substrate/discoveryFilters/Panel';
 import { handleDiscoveryfilters } from '../../app/substrate/discoveryFilters/handler';
 import { DiscoveryfiltersPersistence } from '../../app/substrate/discoveryFilters/persistence';
@@ -46,7 +46,7 @@ describe('discovery filters', () => {
     const selected: string[] = [];
     render(<DiscoveryfiltersPanel service={service} onSelect={(item) => selected.push(item.id)} />);
     await waitFor(() => expect(screen.getByText('1 discovery filters')).toBeTruthy());
-    act(() => { fireEvent.press(screen.getByText('visible')); });
+    fireEvent.press(screen.getByText('visible'));
     expect(selected).toEqual([record.id]);
     fireEvent.press(screen.getByText('Refresh'));
     expect(screen.getByText('1 discovery filters')).toBeTruthy();

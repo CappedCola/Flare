@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { ChatthreadsPanel } from '../../app/substrate/chatThreads/Panel';
 import { handleChatthreads } from '../../app/substrate/chatThreads/handler';
 import { ChatthreadsPersistence } from '../../app/substrate/chatThreads/persistence';
@@ -46,7 +46,7 @@ describe('chat threads', () => {
     const selected: string[] = [];
     render(<ChatthreadsPanel service={service} onSelect={(item) => selected.push(item.id)} />);
     await waitFor(() => expect(screen.getByText('1 chat threads')).toBeTruthy());
-    act(() => { fireEvent.press(screen.getByText('visible')); });
+    fireEvent.press(screen.getByText('visible'));
     expect(selected).toEqual([record.id]);
     fireEvent.press(screen.getByText('Refresh'));
     expect(screen.getByText('1 chat threads')).toBeTruthy();

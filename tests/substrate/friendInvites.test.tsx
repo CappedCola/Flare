@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { FriendinvitesPanel } from '../../app/substrate/friendInvites/Panel';
 import { handleFriendinvites } from '../../app/substrate/friendInvites/handler';
 import { FriendinvitesPersistence } from '../../app/substrate/friendInvites/persistence';
@@ -46,7 +46,7 @@ describe('friend invites', () => {
     const selected: string[] = [];
     render(<FriendinvitesPanel service={service} onSelect={(item) => selected.push(item.id)} />);
     await waitFor(() => expect(screen.getByText('1 friend invites')).toBeTruthy());
-    act(() => { fireEvent.press(screen.getByText('visible')); });
+    fireEvent.press(screen.getByText('visible'));
     expect(selected).toEqual([record.id]);
     fireEvent.press(screen.getByText('Refresh'));
     expect(screen.getByText('1 friend invites')).toBeTruthy();
