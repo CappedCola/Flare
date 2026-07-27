@@ -6,7 +6,10 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest",
+    "test:ci": "jest --ci --runInBand",
+    "test:offline": "jest --ci --runInBand --coverage"
   },
   "dependencies": {
     "@eva-design/eva": "^2.2.0",
@@ -46,8 +49,11 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@testing-library/react-native": "14.0.1",
     "@types/node": "^24.1.0",
     "@types/react": "~19.0.10",
+    "jest-expo": "53.0.14",
+    "jest-junit": "17.0.0",
     "marked": "^16.1.1",
     "typescript": "~5.8.3"
   },
