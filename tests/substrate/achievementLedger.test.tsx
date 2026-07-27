@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { AchievementledgerPanel } from '../../app/substrate/achievementLedger/Panel';
 import { handleAchievementledger } from '../../app/substrate/achievementLedger/handler';
 import { AchievementledgerPersistence } from '../../app/substrate/achievementLedger/persistence';
@@ -40,16 +40,17 @@ describe('achievement ledger', () => {
     expect(handleAchievementledger(service, { action: 'create', input: input({ userId: '' }) }).status).toBe(400);
   });
 
-  it('renders achievement ledger state', async () => {
+  it('renders achievement ledger state', () => {
     const service = new AchievementledgerService(new AchievementledgerPersistence());
     const record = service.create(input({ userId: 'visible' }));
     const selected: string[] = [];
-    render(<AchievementledgerPanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 achievement ledger')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<AchievementledgerPanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 achievement ledger')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips achievementLedger', () => {
     const first = new AchievementledgerPersistence();

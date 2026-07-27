@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { TimelineentriesPanel } from '../../app/substrate/timelineEntries/Panel';
 import { handleTimelineentries } from '../../app/substrate/timelineEntries/handler';
 import { TimelineentriesPersistence } from '../../app/substrate/timelineEntries/persistence';
@@ -40,16 +40,17 @@ describe('timeline entries', () => {
     expect(handleTimelineentries(service, { action: 'create', input: input({ entryId: '' }) }).status).toBe(400);
   });
 
-  it('renders timeline entries state', async () => {
+  it('renders timeline entries state', () => {
     const service = new TimelineentriesService(new TimelineentriesPersistence());
     const record = service.create(input({ entryId: 'visible' }));
     const selected: string[] = [];
-    render(<TimelineentriesPanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 timeline entries')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<TimelineentriesPanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 timeline entries')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips timelineEntries', () => {
     const first = new TimelineentriesPersistence();

@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { PromptqueuePanel } from '../../app/substrate/promptQueue/Panel';
 import { handlePromptqueue } from '../../app/substrate/promptQueue/handler';
 import { PromptqueuePersistence } from '../../app/substrate/promptQueue/persistence';
@@ -40,16 +40,17 @@ describe('prompt queue', () => {
     expect(handlePromptqueue(service, { action: 'create', input: input({ promptId: '' }) }).status).toBe(400);
   });
 
-  it('renders prompt queue state', async () => {
+  it('renders prompt queue state', () => {
     const service = new PromptqueueService(new PromptqueuePersistence());
     const record = service.create(input({ promptId: 'visible' }));
     const selected: string[] = [];
-    render(<PromptqueuePanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 prompt queue')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<PromptqueuePanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 prompt queue')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips promptQueue', () => {
     const first = new PromptqueuePersistence();

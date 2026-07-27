@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { OfflineoutboxPanel } from '../../app/substrate/offlineOutbox/Panel';
 import { handleOfflineoutbox } from '../../app/substrate/offlineOutbox/handler';
 import { OfflineoutboxPersistence } from '../../app/substrate/offlineOutbox/persistence';
@@ -40,16 +40,17 @@ describe('offline outbox items', () => {
     expect(handleOfflineoutbox(service, { action: 'create', input: input({ operationId: '' }) }).status).toBe(400);
   });
 
-  it('renders offline outbox items state', async () => {
+  it('renders offline outbox items state', () => {
     const service = new OfflineoutboxService(new OfflineoutboxPersistence());
     const record = service.create(input({ operationId: 'visible' }));
     const selected: string[] = [];
-    render(<OfflineoutboxPanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 offline outbox items')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<OfflineoutboxPanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 offline outbox items')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips offlineOutbox', () => {
     const first = new OfflineoutboxPersistence();

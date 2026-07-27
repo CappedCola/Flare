@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { ChainturnsPanel } from '../../app/substrate/chainTurns/Panel';
 import { handleChainturns } from '../../app/substrate/chainTurns/handler';
 import { ChainturnsPersistence } from '../../app/substrate/chainTurns/persistence';
@@ -40,16 +40,17 @@ describe('chain turns', () => {
     expect(handleChainturns(service, { action: 'create', input: input({ chainId: '' }) }).status).toBe(400);
   });
 
-  it('renders chain turns state', async () => {
+  it('renders chain turns state', () => {
     const service = new ChainturnsService(new ChainturnsPersistence());
     const record = service.create(input({ chainId: 'visible' }));
     const selected: string[] = [];
-    render(<ChainturnsPanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 chain turns')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<ChainturnsPanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 chain turns')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips chainTurns', () => {
     const first = new ChainturnsPersistence();

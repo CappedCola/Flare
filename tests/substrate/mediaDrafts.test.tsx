@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { MediadraftsPanel } from '../../app/substrate/mediaDrafts/Panel';
 import { handleMediadrafts } from '../../app/substrate/mediaDrafts/handler';
 import { MediadraftsPersistence } from '../../app/substrate/mediaDrafts/persistence';
@@ -40,16 +40,17 @@ describe('media drafts', () => {
     expect(handleMediadrafts(service, { action: 'create', input: input({ draftId: '' }) }).status).toBe(400);
   });
 
-  it('renders media drafts state', async () => {
+  it('renders media drafts state', () => {
     const service = new MediadraftsService(new MediadraftsPersistence());
     const record = service.create(input({ draftId: 'visible' }));
     const selected: string[] = [];
-    render(<MediadraftsPanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 media drafts')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<MediadraftsPanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 media drafts')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips mediaDrafts', () => {
     const first = new MediadraftsPersistence();

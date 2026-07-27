@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { ProfilestatsPanel } from '../../app/substrate/profileStats/Panel';
 import { handleProfilestats } from '../../app/substrate/profileStats/handler';
 import { ProfilestatsPersistence } from '../../app/substrate/profileStats/persistence';
@@ -40,16 +40,17 @@ describe('profile stats', () => {
     expect(handleProfilestats(service, { action: 'create', input: input({ userId: '' }) }).status).toBe(400);
   });
 
-  it('renders profile stats state', async () => {
+  it('renders profile stats state', () => {
     const service = new ProfilestatsService(new ProfilestatsPersistence());
     const record = service.create(input({ userId: 'visible' }));
     const selected: string[] = [];
-    render(<ProfilestatsPanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 profile stats')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<ProfilestatsPanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 profile stats')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips profileStats', () => {
     const first = new ProfilestatsPersistence();

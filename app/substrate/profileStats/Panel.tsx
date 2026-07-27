@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleProfilestats, type ProfilestatsRequest } from './handler';
 import { ProfilestatsService } from './service';
@@ -11,8 +11,9 @@ export type ProfilestatsPanelProps = {
 };
 
 export function ProfilestatsPanel({ service, onSelect, onRemove }: ProfilestatsPanelProps) {
-  const [records, setRecords] = useState<ProfilestatsRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<ProfilestatsRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} profile stats`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function ProfilestatsPanel({ service, onSelect, onRemove }: ProfilestatsP
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="profileStats-panel">

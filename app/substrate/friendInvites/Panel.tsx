@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleFriendinvites, type FriendinvitesRequest } from './handler';
 import { FriendinvitesService } from './service';
@@ -11,8 +11,9 @@ export type FriendinvitesPanelProps = {
 };
 
 export function FriendinvitesPanel({ service, onSelect, onRemove }: FriendinvitesPanelProps) {
-  const [records, setRecords] = useState<FriendinvitesRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<FriendinvitesRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} friend invites`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function FriendinvitesPanel({ service, onSelect, onRemove }: Friendinvite
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="friendInvites-panel">

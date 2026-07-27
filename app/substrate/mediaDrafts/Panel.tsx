@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleMediadrafts, type MediadraftsRequest } from './handler';
 import { MediadraftsService } from './service';
@@ -11,8 +11,9 @@ export type MediadraftsPanelProps = {
 };
 
 export function MediadraftsPanel({ service, onSelect, onRemove }: MediadraftsPanelProps) {
-  const [records, setRecords] = useState<MediadraftsRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<MediadraftsRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} media drafts`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function MediadraftsPanel({ service, onSelect, onRemove }: MediadraftsPan
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="mediaDrafts-panel">

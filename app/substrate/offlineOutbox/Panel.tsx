@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleOfflineoutbox, type OfflineoutboxRequest } from './handler';
 import { OfflineoutboxService } from './service';
@@ -11,8 +11,9 @@ export type OfflineoutboxPanelProps = {
 };
 
 export function OfflineoutboxPanel({ service, onSelect, onRemove }: OfflineoutboxPanelProps) {
-  const [records, setRecords] = useState<OfflineoutboxRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<OfflineoutboxRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} offline outbox items`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function OfflineoutboxPanel({ service, onSelect, onRemove }: Offlineoutbo
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="offlineOutbox-panel">

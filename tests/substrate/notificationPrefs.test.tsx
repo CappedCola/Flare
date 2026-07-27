@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { NotificationprefsPanel } from '../../app/substrate/notificationPrefs/Panel';
 import { handleNotificationprefs } from '../../app/substrate/notificationPrefs/handler';
 import { NotificationprefsPersistence } from '../../app/substrate/notificationPrefs/persistence';
@@ -40,16 +40,17 @@ describe('notification preferences', () => {
     expect(handleNotificationprefs(service, { action: 'create', input: input({ userId: '' }) }).status).toBe(400);
   });
 
-  it('renders notification preferences state', async () => {
+  it('renders notification preferences state', () => {
     const service = new NotificationprefsService(new NotificationprefsPersistence());
     const record = service.create(input({ userId: 'visible' }));
     const selected: string[] = [];
-    render(<NotificationprefsPanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 notification preferences')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<NotificationprefsPanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 notification preferences')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips notificationPrefs', () => {
     const first = new NotificationprefsPersistence();

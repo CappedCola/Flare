@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleNotificationprefs, type NotificationprefsRequest } from './handler';
 import { NotificationprefsService } from './service';
@@ -11,8 +11,9 @@ export type NotificationprefsPanelProps = {
 };
 
 export function NotificationprefsPanel({ service, onSelect, onRemove }: NotificationprefsPanelProps) {
-  const [records, setRecords] = useState<NotificationprefsRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<NotificationprefsRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} notification preferences`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function NotificationprefsPanel({ service, onSelect, onRemove }: Notifica
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="notificationPrefs-panel">

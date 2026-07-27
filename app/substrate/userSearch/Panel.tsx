@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleUsersearch, type UsersearchRequest } from './handler';
 import { UsersearchService } from './service';
@@ -11,8 +11,9 @@ export type UsersearchPanelProps = {
 };
 
 export function UsersearchPanel({ service, onSelect, onRemove }: UsersearchPanelProps) {
-  const [records, setRecords] = useState<UsersearchRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<UsersearchRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} user search entries`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function UsersearchPanel({ service, onSelect, onRemove }: UsersearchPanel
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="userSearch-panel">

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handlePhotoreactions, type PhotoreactionsRequest } from './handler';
 import { PhotoreactionsService } from './service';
@@ -11,8 +11,9 @@ export type PhotoreactionsPanelProps = {
 };
 
 export function PhotoreactionsPanel({ service, onSelect, onRemove }: PhotoreactionsPanelProps) {
-  const [records, setRecords] = useState<PhotoreactionsRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<PhotoreactionsRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} photo reactions`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function PhotoreactionsPanel({ service, onSelect, onRemove }: Photoreacti
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="photoReactions-panel">

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleTimelineentries, type TimelineentriesRequest } from './handler';
 import { TimelineentriesService } from './service';
@@ -11,8 +11,9 @@ export type TimelineentriesPanelProps = {
 };
 
 export function TimelineentriesPanel({ service, onSelect, onRemove }: TimelineentriesPanelProps) {
-  const [records, setRecords] = useState<TimelineentriesRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<TimelineentriesRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} timeline entries`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function TimelineentriesPanel({ service, onSelect, onRemove }: Timelineen
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="timelineEntries-panel">

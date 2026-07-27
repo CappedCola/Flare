@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleChatthreads, type ChatthreadsRequest } from './handler';
 import { ChatthreadsService } from './service';
@@ -11,8 +11,9 @@ export type ChatthreadsPanelProps = {
 };
 
 export function ChatthreadsPanel({ service, onSelect, onRemove }: ChatthreadsPanelProps) {
-  const [records, setRecords] = useState<ChatthreadsRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<ChatthreadsRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} chat threads`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function ChatthreadsPanel({ service, onSelect, onRemove }: ChatthreadsPan
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="chatThreads-panel">

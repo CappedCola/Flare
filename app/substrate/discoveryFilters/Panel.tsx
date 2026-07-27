@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleDiscoveryfilters, type DiscoveryfiltersRequest } from './handler';
 import { DiscoveryfiltersService } from './service';
@@ -11,8 +11,9 @@ export type DiscoveryfiltersPanelProps = {
 };
 
 export function DiscoveryfiltersPanel({ service, onSelect, onRemove }: DiscoveryfiltersPanelProps) {
-  const [records, setRecords] = useState<DiscoveryfiltersRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<DiscoveryfiltersRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} discovery filters`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function DiscoveryfiltersPanel({ service, onSelect, onRemove }: Discovery
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="discoveryFilters-panel">

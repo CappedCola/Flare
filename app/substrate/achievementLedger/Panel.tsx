@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleAchievementledger, type AchievementledgerRequest } from './handler';
 import { AchievementledgerService } from './service';
@@ -11,8 +11,9 @@ export type AchievementledgerPanelProps = {
 };
 
 export function AchievementledgerPanel({ service, onSelect, onRemove }: AchievementledgerPanelProps) {
-  const [records, setRecords] = useState<AchievementledgerRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<AchievementledgerRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} achievement ledger`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function AchievementledgerPanel({ service, onSelect, onRemove }: Achievem
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="achievementLedger-panel">

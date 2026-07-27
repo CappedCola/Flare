@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleChainturns, type ChainturnsRequest } from './handler';
 import { ChainturnsService } from './service';
@@ -11,8 +11,9 @@ export type ChainturnsPanelProps = {
 };
 
 export function ChainturnsPanel({ service, onSelect, onRemove }: ChainturnsPanelProps) {
-  const [records, setRecords] = useState<ChainturnsRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<ChainturnsRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} chain turns`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function ChainturnsPanel({ service, onSelect, onRemove }: ChainturnsPanel
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="chainTurns-panel">

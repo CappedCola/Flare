@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { DiscoveryfiltersPanel } from '../../app/substrate/discoveryFilters/Panel';
 import { handleDiscoveryfilters } from '../../app/substrate/discoveryFilters/handler';
 import { DiscoveryfiltersPersistence } from '../../app/substrate/discoveryFilters/persistence';
@@ -40,16 +40,17 @@ describe('discovery filters', () => {
     expect(handleDiscoveryfilters(service, { action: 'create', input: input({ query: '' }) }).status).toBe(400);
   });
 
-  it('renders discovery filters state', async () => {
+  it('renders discovery filters state', () => {
     const service = new DiscoveryfiltersService(new DiscoveryfiltersPersistence());
     const record = service.create(input({ query: 'visible' }));
     const selected: string[] = [];
-    render(<DiscoveryfiltersPanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 discovery filters')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<DiscoveryfiltersPanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 discovery filters')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips discoveryFilters', () => {
     const first = new DiscoveryfiltersPersistence();

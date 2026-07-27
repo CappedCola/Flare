@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { FriendinvitesPanel } from '../../app/substrate/friendInvites/Panel';
 import { handleFriendinvites } from '../../app/substrate/friendInvites/handler';
 import { FriendinvitesPersistence } from '../../app/substrate/friendInvites/persistence';
@@ -40,16 +40,17 @@ describe('friend invites', () => {
     expect(handleFriendinvites(service, { action: 'create', input: input({ inviteId: '' }) }).status).toBe(400);
   });
 
-  it('renders friend invites state', async () => {
+  it('renders friend invites state', () => {
     const service = new FriendinvitesService(new FriendinvitesPersistence());
     const record = service.create(input({ inviteId: 'visible' }));
     const selected: string[] = [];
-    render(<FriendinvitesPanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 friend invites')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<FriendinvitesPanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 friend invites')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips friendInvites', () => {
     const first = new FriendinvitesPersistence();

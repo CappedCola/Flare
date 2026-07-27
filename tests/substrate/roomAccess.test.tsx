@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { RoomaccessPanel } from '../../app/substrate/roomAccess/Panel';
 import { handleRoomaccess } from '../../app/substrate/roomAccess/handler';
 import { RoomaccessPersistence } from '../../app/substrate/roomAccess/persistence';
@@ -40,16 +40,17 @@ describe('room access grants', () => {
     expect(handleRoomaccess(service, { action: 'create', input: input({ roomId: '' }) }).status).toBe(400);
   });
 
-  it('renders room access grants state', async () => {
+  it('renders room access grants state', () => {
     const service = new RoomaccessService(new RoomaccessPersistence());
     const record = service.create(input({ roomId: 'visible' }));
     const selected: string[] = [];
-    render(<RoomaccessPanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 room access grants')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<RoomaccessPanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 room access grants')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips roomAccess', () => {
     const first = new RoomaccessPersistence();

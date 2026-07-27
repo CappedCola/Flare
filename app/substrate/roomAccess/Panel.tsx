@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleRoomaccess, type RoomaccessRequest } from './handler';
 import { RoomaccessService } from './service';
@@ -11,8 +11,9 @@ export type RoomaccessPanelProps = {
 };
 
 export function RoomaccessPanel({ service, onSelect, onRemove }: RoomaccessPanelProps) {
-  const [records, setRecords] = useState<RoomaccessRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<RoomaccessRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} room access grants`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function RoomaccessPanel({ service, onSelect, onRemove }: RoomaccessPanel
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="roomAccess-panel">

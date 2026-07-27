@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handlePromptqueue, type PromptqueueRequest } from './handler';
 import { PromptqueueService } from './service';
@@ -11,8 +11,9 @@ export type PromptqueuePanelProps = {
 };
 
 export function PromptqueuePanel({ service, onSelect, onRemove }: PromptqueuePanelProps) {
-  const [records, setRecords] = useState<PromptqueueRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<PromptqueueRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} prompt queue`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function PromptqueuePanel({ service, onSelect, onRemove }: PromptqueuePan
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="promptQueue-panel">

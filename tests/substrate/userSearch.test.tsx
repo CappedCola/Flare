@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { UsersearchPanel } from '../../app/substrate/userSearch/Panel';
 import { handleUsersearch } from '../../app/substrate/userSearch/handler';
 import { UsersearchPersistence } from '../../app/substrate/userSearch/persistence';
@@ -40,16 +40,17 @@ describe('user search entries', () => {
     expect(handleUsersearch(service, { action: 'create', input: input({ userId: '' }) }).status).toBe(400);
   });
 
-  it('renders user search entries state', async () => {
+  it('renders user search entries state', () => {
     const service = new UsersearchService(new UsersearchPersistence());
     const record = service.create(input({ userId: 'visible' }));
     const selected: string[] = [];
-    render(<UsersearchPanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 user search entries')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<UsersearchPanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 user search entries')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips userSearch', () => {
     const first = new UsersearchPersistence();

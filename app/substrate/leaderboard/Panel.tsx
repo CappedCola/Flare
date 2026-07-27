@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import { handleLeaderboard, type LeaderboardRequest } from './handler';
 import { LeaderboardService } from './service';
@@ -11,8 +11,9 @@ export type LeaderboardPanelProps = {
 };
 
 export function LeaderboardPanel({ service, onSelect, onRemove }: LeaderboardPanelProps) {
-  const [records, setRecords] = useState<LeaderboardRecord[]>([]);
-  const [message, setMessage] = useState('Loading');
+  const initialRecords = service.search();
+  const [records, setRecords] = useState<LeaderboardRecord[]>(initialRecords);
+  const [message, setMessage] = useState(`${initialRecords.length} leaderboard entries`);
 
 
   const remove = (id: string) => {
@@ -31,7 +32,6 @@ export function LeaderboardPanel({ service, onSelect, onRemove }: LeaderboardPan
     }
   };
 
-  useEffect(() => { refresh(); }, [service]);
 
   return (
     <View accessibilityLabel="leaderboard-panel">

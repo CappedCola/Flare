@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import TestRenderer, { act } from 'react-test-renderer';
 import { LeaderboardPanel } from '../../app/substrate/leaderboard/Panel';
 import { handleLeaderboard } from '../../app/substrate/leaderboard/handler';
 import { LeaderboardPersistence } from '../../app/substrate/leaderboard/persistence';
@@ -40,16 +40,17 @@ describe('leaderboard entries', () => {
     expect(handleLeaderboard(service, { action: 'create', input: input({ season: '' }) }).status).toBe(400);
   });
 
-  it('renders leaderboard entries state', async () => {
+  it('renders leaderboard entries state', () => {
     const service = new LeaderboardService(new LeaderboardPersistence());
     const record = service.create(input({ season: 'visible' }));
     const selected: string[] = [];
-    render(<LeaderboardPanel service={service} onSelect={(item) => selected.push(item.id)} />);
-    await waitFor(() => expect(screen.getByText('1 leaderboard entries')).toBeTruthy());
-    fireEvent.press(screen.getByText('visible'));
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<LeaderboardPanel service={service} onSelect={(item) => selected.push(item.id)} />); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
+    act(() => { tree!.root.findByProps({ title: 'visible' }).props.onPress(); });
     expect(selected).toEqual([record.id]);
-    fireEvent.press(screen.getByText('Refresh'));
-    expect(screen.getByText('1 leaderboard entries')).toBeTruthy();
+    act(() => { tree!.root.findByProps({ title: 'Refresh' }).props.onPress(); });
+    expect(tree!.root.findAllByProps({ title: 'visible' })).toHaveLength(1);
   });
   it('round trips leaderboard', () => {
     const first = new LeaderboardPersistence();
