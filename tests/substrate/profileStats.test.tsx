@@ -13,7 +13,6 @@ const input = (overrides: Partial<ProfilestatsInput> = {}): ProfilestatsInput =>
   ...overrides,
 });
 
-describe('profile stats', () => {
   it('persists profile stats', () => {
     const store = new ProfilestatsPersistence();
     const service = new ProfilestatsService(store);
@@ -119,4 +118,3 @@ describe('profile stats', () => {
     expect(row.userId).toBe('primary');
   });
 
-});

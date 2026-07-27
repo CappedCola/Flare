@@ -13,7 +13,6 @@ const input = (overrides: Partial<FriendinvitesInput> = {}): FriendinvitesInput 
   ...overrides,
 });
 
-describe('friend invites', () => {
   it('persists friend invites', () => {
     const store = new FriendinvitesPersistence();
     const service = new FriendinvitesService(store);
@@ -119,4 +118,3 @@ describe('friend invites', () => {
     expect(row.inviteId).toBe('primary');
   });
 
-});

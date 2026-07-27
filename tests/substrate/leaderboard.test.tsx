@@ -13,7 +13,6 @@ const input = (overrides: Partial<LeaderboardInput> = {}): LeaderboardInput => (
   ...overrides,
 });
 
-describe('leaderboard entries', () => {
   it('persists leaderboard entries', () => {
     const store = new LeaderboardPersistence();
     const service = new LeaderboardService(store);
@@ -119,4 +118,3 @@ describe('leaderboard entries', () => {
     expect(row.season).toBe('primary');
   });
 
-});

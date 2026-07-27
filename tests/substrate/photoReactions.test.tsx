@@ -13,7 +13,6 @@ const input = (overrides: Partial<PhotoreactionsInput> = {}): PhotoreactionsInpu
   ...overrides,
 });
 
-describe('photo reactions', () => {
   it('persists photo reactions', () => {
     const store = new PhotoreactionsPersistence();
     const service = new PhotoreactionsService(store);
@@ -119,4 +118,3 @@ describe('photo reactions', () => {
     expect(row.photoId).toBe('primary');
   });
 
-});

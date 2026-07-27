@@ -13,7 +13,6 @@ const input = (overrides: Partial<ChainturnsInput> = {}): ChainturnsInput => ({
   ...overrides,
 });
 
-describe('chain turns', () => {
   it('persists chain turns', () => {
     const store = new ChainturnsPersistence();
     const service = new ChainturnsService(store);
@@ -119,4 +118,3 @@ describe('chain turns', () => {
     expect(row.chainId).toBe('primary');
   });
 
-});

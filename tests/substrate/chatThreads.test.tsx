@@ -13,7 +13,6 @@ const input = (overrides: Partial<ChatthreadsInput> = {}): ChatthreadsInput => (
   ...overrides,
 });
 
-describe('chat threads', () => {
   it('persists chat threads', () => {
     const store = new ChatthreadsPersistence();
     const service = new ChatthreadsService(store);
@@ -119,4 +118,3 @@ describe('chat threads', () => {
     expect(row.threadId).toBe('primary');
   });
 
-});

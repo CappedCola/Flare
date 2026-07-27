@@ -13,7 +13,6 @@ const input = (overrides: Partial<DiscoveryfiltersInput> = {}): Discoveryfilters
   ...overrides,
 });
 
-describe('discovery filters', () => {
   it('persists discovery filters', () => {
     const store = new DiscoveryfiltersPersistence();
     const service = new DiscoveryfiltersService(store);
@@ -119,4 +118,3 @@ describe('discovery filters', () => {
     expect(row.query).toBe('primary');
   });
 
-});

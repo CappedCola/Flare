@@ -13,7 +13,6 @@ const input = (overrides: Partial<UsersearchInput> = {}): UsersearchInput => ({
   ...overrides,
 });
 
-describe('user search entries', () => {
   it('persists user search entries', () => {
     const store = new UsersearchPersistence();
     const service = new UsersearchService(store);
@@ -119,4 +118,3 @@ describe('user search entries', () => {
     expect(row.userId).toBe('primary');
   });
 
-});

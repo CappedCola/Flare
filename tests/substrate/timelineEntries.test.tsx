@@ -13,7 +13,6 @@ const input = (overrides: Partial<TimelineentriesInput> = {}): TimelineentriesIn
   ...overrides,
 });
 
-describe('timeline entries', () => {
   it('persists timeline entries', () => {
     const store = new TimelineentriesPersistence();
     const service = new TimelineentriesService(store);
@@ -119,4 +118,3 @@ describe('timeline entries', () => {
     expect(row.entryId).toBe('primary');
   });
 
-});

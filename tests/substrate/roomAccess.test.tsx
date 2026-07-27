@@ -13,7 +13,6 @@ const input = (overrides: Partial<RoomaccessInput> = {}): RoomaccessInput => ({
   ...overrides,
 });
 
-describe('room access grants', () => {
   it('persists room access grants', () => {
     const store = new RoomaccessPersistence();
     const service = new RoomaccessService(store);
@@ -119,4 +118,3 @@ describe('room access grants', () => {
     expect(row.roomId).toBe('primary');
   });
 
-});

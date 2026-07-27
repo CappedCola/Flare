@@ -13,7 +13,6 @@ const input = (overrides: Partial<OfflineoutboxInput> = {}): OfflineoutboxInput 
   ...overrides,
 });
 
-describe('offline outbox items', () => {
   it('persists offline outbox items', () => {
     const store = new OfflineoutboxPersistence();
     const service = new OfflineoutboxService(store);
@@ -119,4 +118,3 @@ describe('offline outbox items', () => {
     expect(row.operationId).toBe('primary');
   });
 
-});

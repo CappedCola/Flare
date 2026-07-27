@@ -13,7 +13,6 @@ const input = (overrides: Partial<PromptqueueInput> = {}): PromptqueueInput => (
   ...overrides,
 });
 
-describe('prompt queue', () => {
   it('persists prompt queue', () => {
     const store = new PromptqueuePersistence();
     const service = new PromptqueueService(store);
@@ -119,4 +118,3 @@ describe('prompt queue', () => {
     expect(row.promptId).toBe('primary');
   });
 
-});

@@ -13,7 +13,6 @@ const input = (overrides: Partial<NotificationprefsInput> = {}): Notificationpre
   ...overrides,
 });
 
-describe('notification preferences', () => {
   it('persists notification preferences', () => {
     const store = new NotificationprefsPersistence();
     const service = new NotificationprefsService(store);
@@ -119,4 +118,3 @@ describe('notification preferences', () => {
     expect(row.userId).toBe('primary');
   });
 
-});

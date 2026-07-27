@@ -13,7 +13,6 @@ const input = (overrides: Partial<AchievementledgerInput> = {}): Achievementledg
   ...overrides,
 });
 
-describe('achievement ledger', () => {
   it('persists achievement ledger', () => {
     const store = new AchievementledgerPersistence();
     const service = new AchievementledgerService(store);
@@ -119,4 +118,3 @@ describe('achievement ledger', () => {
     expect(row.userId).toBe('primary');
   });
 
-});

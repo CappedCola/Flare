@@ -13,7 +13,6 @@ const input = (overrides: Partial<MediadraftsInput> = {}): MediadraftsInput => (
   ...overrides,
 });
 
-describe('media drafts', () => {
   it('persists media drafts', () => {
     const store = new MediadraftsPersistence();
     const service = new MediadraftsService(store);
@@ -119,4 +118,3 @@ describe('media drafts', () => {
     expect(row.draftId).toBe('primary');
   });
 
-});
