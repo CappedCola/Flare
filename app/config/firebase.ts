@@ -3,16 +3,16 @@ import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from '@react-native-firebase/firestore';
 import { getStorage, connectStorageEmulator } from '@react-native-firebase/storage';
 
-// Your Firebase configuration from Firebase Console
+// Firebase web config comes from EXPO_PUBLIC_FIREBASE_* variables (see .env.example).
 const firebaseConfig = {
-  apiKey: "REDACTED_FIREBASE_API_KEY",
-  authDomain: "flare-app-a2b12.firebaseapp.com",
-  databaseURL: "https://flare-app-a2b12-default-rtdb.firebaseio.com",
-  projectId: "flare-app-a2b12",
-  storageBucket: "flare-app-a2b12.firebasestorage.app",
-  messagingSenderId: "151946802455",
-  appId: "1:151946802455:web:7e0527857676a74fe2f352",
-  measurementId: "G-5THJRD95BP"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Initialize Firebase app if not already initialized

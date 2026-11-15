@@ -123,3 +123,11 @@ screenshots/
 
 # WebStorm
 .idea/
+# Secrets and local config (use .env.example as the template)
+.env
+.env.*
+!.env.example
+google-services.json
+GoogleService-Info.plist
+firebase-debug.log
+*-debug.log
